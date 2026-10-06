@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="scoreboard-shell">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div><p class="eyebrow">Manual score board</p><h1 class="display-6 fw-bold mb-1">Kachhu Ful scores</h1><p class="text-secondary mb-0">Exact bid scoring: (bid + 1) × 10 + bid. A missed bid scores 0.</p></div>
+    <div class="d-flex gap-2"><button class="btn btn-success" id="add-round" type="button">Add round</button><button class="btn btn-outline-secondary" id="reset-game" type="button">Reset</button></div>
+  </div>
+
+  {% if game %}<div class="alert alert-success">Scores are loaded for <strong>{{ game.name }}</strong>. Player names come from this table.</div>{% endif %}<section class="surface p-4 mb-4"><div class="section-heading"><h2 class="h4 mb-0">Players</h2><span class="small text-secondary">{{ player_names|length|default:5 }}-player score board</span></div><div class="row g-3 mt-1" id="player-fields"></div></section>
+  <div class="alert alert-info py-2"><strong>Round rule:</strong> each bid and actual-trick value must be between 0 and {{ max_cards }}. Exact bids score <strong>(bid + 1) × 10 + bid</strong>; missed bids score 0.</div>
+  <section class="surface p-4 mb-4"><div class="section-heading"><h2 class="h4 mb-0">All-round totals</h2><span class="small text-secondary">Updated as you type</span></div><div class="row g-3 mt-1" id="totals"></div></section>
+  <div id="rounds"></div>
+  <div class="empty-state surface" id="empty-state">No rounds yet. Add a round to start recording bids.</div>
+</div>
+{{ player_names|json_script:"stored-player-names" }}
+<script>
+const storedPlayerNames = JSON.parse(document.getElementById('stored-player-names').textContent);
+const playerNames = storedPlayerNames.length ? storedPlayerNames : Array.from({length: 5}, (_, index) => `Player ${index + 1}`);
+const playerCount = playerNames.length;
+const maxCards = {{ max_cards|default:52 }};
+let roundNumber = 0;
+const rounds = document.getElementById('rounds');
+const emptyState = document.getElementById('empty-state');
+
+function scoreFor(bid, actual) {
+  if (bid === '' || actual === '') return 0;
+  const bidValue = Number(bid);
+  return bidValue === Number(actual) ? ((bidValue + 1) * 10) + bidValue : 0;
+}
+
+function renderPlayers() {
+  document.getElementById('player-fields').innerHTML = playerNames.map((name, index) => `
+    <div class="col-sm-6 col-lg"><label class="form-label small fw-bold" for="player-${index}">Player ${index + 1}</label>
+    <input class="form-control player-name" id="player-${index}" value="${name}" data-player="${index}" maxlength="80"></div>`).join('');
+  document.querySelectorAll('.player-name').forEach((input) => input.addEventListener('input', (event) => {
+    playerNames[Number(event.target.dataset.player)] = event.target.value || `Player ${Number(event.target.dataset.player) + 1}`;
+    document.querySelectorAll(`[data-name-player="${event.target.dataset.player}"]`).forEach((element) => element.textContent = playerNames[Number(event.target.dataset.player)]);
+    renderTotals();
+  }));
+}
+
+function renderTotals() {
+  const totals = Array.from({length: playerCount}, () => ({ bids: 0, actual: 0, points: 0 }));
+  document.querySelectorAll('.round-card').forEach((round) => {
+    for (let player = 0; player < playerCount; player++) {
+      const bid = round.querySelector(`[data-field="bid-${player}"]`).value;
+      const actual = round.querySelector(`[data-field="actual-${player}"]`).value;
+      totals[player].bids += bid === '' ? 0 : Number(bid);
+      totals[player].actual += actual === '' ? 0 : Number(actual);
+      totals[player].points += scoreFor(bid, actual);
+    }
+  });
+  document.getElementById('totals').innerHTML = totals.map((total, index) => `<div class="col-6 col-md"><div class="score-tile"><span>${playerNames[index]}</span><strong>${total.points}</strong><small>Bid ${total.bids} · Actual ${total.actual}</small></div></div>`).join('');
+}
+
+function updateRound(round) {
+  let bidTotal = 0;
+  let actualTotal = 0;
+  let pointsTotal = 0;
+  for (let player = 0; player < playerCount; player++) {
+    const bid = round.querySelector(`[data-field="bid-${player}"]`);
+    const actual = round.querySelector(`[data-field="actual-${player}"]`);
+    const result = round.querySelector(`[data-field="score-${player}"]`);
+    const score = scoreFor(bid.value, actual.value);
+    bidTotal += bid.value === '' ? 0 : Number(bid.value);
+    actualTotal += actual.value === '' ? 0 : Number(actual.value);
+    pointsTotal += score;
+    result.textContent = score;
+    result.className = `round-result ${bid.value !== '' && actual.value !== '' ? (Number(bid.value) === Number(actual.value) ? 'matched' : 'missed') : ''}`;
+  }
+  round.querySelector('[data-field="bid-total"]').textContent = bidTotal;
+  round.querySelector('[data-field="actual-total"]').textContent = actualTotal;
+  round.querySelector('[data-field="points-total"]').textContent = pointsTotal;
+  renderTotals();
+}
+
+function addRound() {
+  roundNumber += 1;
+  const round = document.createElement('section');
+  round.className = 'surface p-4 mb-4 round-card';
+  round.dataset.round = roundNumber;
+  round.innerHTML = `<div class="section-heading"><h2 class="h4 mb-0">Round ${roundNumber}</h2><span class="small text-secondary">Maximum ${maxCards} tricks per player</span><button class="btn btn-sm btn-outline-danger remove-round" type="button">Remove round</button></div><div class="table-responsive mt-3"><table class="table score-table align-middle mb-0"><thead><tr><th>Player</th><th>Bid</th><th>Actual tricks</th><th>Round points</th></tr></thead><tbody>${playerNames.map((name, player) => `<tr><th data-name-player="${player}">${name}</th><td><input class="form-control" type="number" min="0" max="${maxCards}" data-field="bid-${player}" placeholder="0"></td><td><input class="form-control" type="number" min="0" max="${maxCards}" data-field="actual-${player}" placeholder="0"></td><td><span class="round-result" data-field="score-${player}">0</span></td></tr>`).join('')}<tr class="summary-row"><th>Round totals</th><th data-field="bid-total">0</th><th data-field="actual-total">0</th><th data-field="points-total">0</th></tr></tbody></table></div>`;
+  rounds.appendChild(round);
+  emptyState.classList.add('d-none');
+  round.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => { if (Number(input.value) > maxCards) { input.value = maxCards; input.classList.add('is-invalid'); } else { input.classList.remove('is-invalid'); } updateRound(round); }));
+  updateRound(round);
+  round.querySelector('.remove-round').addEventListener('click', () => { round.remove(); emptyState.classList.toggle('d-none', rounds.children.length > 0); renderTotals(); });
+}
+
+document.getElementById('add-round').addEventListener('click', addRound);
+document.getElementById('reset-game').addEventListener('click', async () => { if (!await showAppConfirm('Reset all players, rounds, and scores?', 'Reset scoreboard', true)) return; rounds.innerHTML = ''; roundNumber = 0; playerNames.splice(0, playerNames.length, ...Array.from({length: playerCount}, (_, index) => `Player ${index + 1}`)); renderPlayers(); renderTotals(); emptyState.classList.remove('d-none'); });
+renderPlayers();
+renderTotals();
+addRound();
+</script>
+{% endblock %}

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Kachu Ful - Card Game</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f4f6f8;
+        color: #222;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 20px;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 5px;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 25px;
+    }
+
+    .players {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-bottom: 25px;
+    }
+
+    .player-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .player-card label {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .player-card input {
+        width: 100%;
+        padding: 9px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+    }
+
+    .score-board {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .score-board h2 {
+        margin-top: 0;
+    }
+
+    .score-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+    }
+
+    .score {
+        text-align: center;
+        padding: 15px;
+        background: #eef2ff;
+        border-radius: 8px;
+    }
+
+    .score .name {
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .score .points {
+        font-size: 28px;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+
+    .round {
+        background: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .round-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .round-header h2 {
+        margin: 0;
+    }
+
+    .round table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: center;
+    }
+
+    th {
+        background: #f1f3f5;
+    }
+
+    td input {
+        width: 80px;
+        padding: 8px;
+        text-align: center;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+    .result {
+        font-weight: bold;
+        min-width: 80px;
+    }
+
+    .matched {
+        color: green;
+    }
+
+    .not-matched {
+        color: red;
+    }
+
+    button {
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .add-btn {
+        background: #2563eb;
+        color: white;
+        width: 100%;
+        font-size: 16px;
+        margin-bottom: 20px;
+    }
+
+    .remove-btn {
+        background: #dc2626;
+        color: white;
+        font-size: 12px;
+    }
+
+    .reset-btn {
+        background: #555;
+        color: white;
+    }
+
+    .rules {
+        background: #fff;
+        border-left: 5px solid #2563eb;
+        padding: 15px;
+        margin-bottom: 25px;
+        border-radius: 5px;
+    }
+
+    .rules h3 {
+        margin-top: 0;
+    }
+
+    .rules li {
+        margin-bottom: 6px;
+    }
+
+    @media (max-width: 800px) {
+        .players,
+        .score-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .round {
+            overflow-x: auto;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🃏 કાચું ફૂલ</h1>
+    <div class="subtitle">
+        5 Player Card Game Score Board
+    </div>
+
+    <!-- PLAYERS -->
+    <div class="players">
+
+        <div class="player-card">
+            <label>Player 1</label>
+            <input type="text" id="player1" value="Player 1"
+                   onchange="updateNames()">
+        </div>
+
+        <div class="player-card">
+            <label>Player 2</label>
+            <input type="text" id="player2" value="Player 2"
+                   onchange="updateNames()">
+        </div>
+
+        <div class="player-card">
+            <label>Player 3</label>
+            <input type="text" id="player3" value="Player 3"
+                   onchange="updateNames()">
+        </div>
+
+        <div class="player-card">
+            <label>Player 4</label>
+            <input type="text" id="player4" value="Player 4"
+                   onchange="updateNames()">
+        </div>
+
+        <div class="player-card">
+            <label>Player 5</label>
+            <input type="text" id="player5" value="Player 5"
+                   onchange="updateNames()">
+        </div>
+
+    </div>
+
+
+    <!-- RULES -->
+    <div class="rules">
+
+        <h3>Scoring Rules</h3>
+
+        <ul>
+            <li>Bid અને Actual Hands સરખા હોય → Bid જેટલા points.</li>
+            <li>Bid = 0 અને Actual = 0 → 0 points.</li>
+            <li>Bid અને Actual અલગ હોય → 0 points.</li>
+            <li>દરેક round ના points player ના total score માં ઉમેરાશે.</li>
+        </ul>
+
+    </div>
+
+
+    <!-- SCORE BOARD -->
+    <div class="score-board">
+
+        <h2>🏆 Total Score</h2>
+
+        <div class="score-grid">
+
+            <div class="score">
+                <div class="name" id="scoreName1">Player 1</div>
+                <div class="points" id="total1">0</div>
+            </div>
+
+            <div class="score">
+                <div class="name" id="scoreName2">Player 2</div>
+                <div class="points" id="total2">0</div>
+            </div>
+
+            <div class="score">
+                <div class="name" id="scoreName3">Player 3</div>
+                <div class="points" id="total3">0</div>
+            </div>
+
+            <div class="score">
+                <div class="name" id="scoreName4">Player 4</div>
+                <div class="points" id="total4">0</div>
+            </div>
+
+            <div class="score">
+                <div class="name" id="scoreName5">Player 5</div>
+                <div class="points" id="total5">0</div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ROUNDS -->
+    <div id="rounds"></div>
+
+
+    <!-- ADD ROUND -->
+    <button class="add-btn" onclick="addRound()">
+        + Add New Round
+    </button>
+
+    <button class="reset-btn" onclick="resetGame()">
+        Reset Game
+    </button>
+
+</div>
+
+
+<script>
+
+let roundNumber = 0;
+
+
+/*
+    Calculate score
+
+    Example:
+
+    Bid = 0, Actual = 0
+    => 0
+
+    Bid = 1, Actual = 1
+    => 1
+
+    Bid = 3, Actual = 3
+    => 3
+
+    Bid = 3, Actual = 2
+    => 0
+*/
+
+function calculateScore(bid, actual) {
+
+    if (bid === "" || actual === "") {
+        return 0;
+    }
+
+    bid = Number(bid);
+    actual = Number(actual);
+
+    if (bid === actual) {
+        return bid;
+    }
+
+    return 0;
+}
+
+
+/* ADD NEW ROUND */
+
+function addRound() {
+
+    roundNumber++;
+
+    const roundsContainer = document.getElementById("rounds");
+
+    const round = document.createElement("div");
+
+    round.className = "round";
+
+    round.id = "round-" + roundNumber;
+
+    round.innerHTML = `
+
+        <div class="round-header">
+
+            <h2>Round ${roundNumber}</h2>
+
+            <button
+                class="remove-btn"
+                onclick="removeRound(${roundNumber})">
+                Remove Round
+            </button>
+
+        </div>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Player</th>
+                    <th>Bid / Written Hands</th>
+                    <th>Actual Hands</th>
+                    <th>Round Points</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${createPlayerRow(1)}
+                ${createPlayerRow(2)}
+                ${createPlayerRow(3)}
+                ${createPlayerRow(4)}
+                ${createPlayerRow(5)}
+
+            </tbody>
+
+        </table>
+
+    `;
+
+    roundsContainer.appendChild(round);
+}
+
+
+/* CREATE PLAYER ROW */
+
+function createPlayerRow(playerNumber) {
+
+    return `
+
+        <tr>
+
+            <td>
+                <strong id="round-${roundNumber}-name-${playerNumber}">
+                    Player ${playerNumber}
+                </strong>
+            </td>
+
+            <td>
+
+                <input
+                    type="number"
+                    min="0"
+                    id="round-${roundNumber}-bid-${playerNumber}"
+                    oninput="calculateRound(${roundNumber})"
+                    placeholder="Bid">
+
+            </td>
+
+            <td>
+
+                <input
+                    type="number"
+                    min="0"
+                    id="round-${roundNumber}-actual-${playerNumber}"
+                    oninput="calculateRound(${roundNumber})"
+                    placeholder="Actual">
+
+            </td>
+
+            <td>
+
+                <span
+                    class="result"
+                    id="round-${roundNumber}-score-${playerNumber}">
+                    0
+                </span>
+
+            </td>
+
+        </tr>
+
+    `;
+}
+
+
+/* CALCULATE ROUND */
+
+function calculateRound(round) {
+
+    for (let player = 1; player <= 5; player++) {
+
+        const bid =
+            document.getElementById(
+                `round-${round}-bid-${player}`
+            ).value;
+
+        const actual =
+            document.getElementById(
+                `round-${round}-actual-${player}`
+            ).value;
+
+        const score =
+            calculateScore(bid, actual);
+
+        const scoreElement =
+            document.getElementById(
+                `round-${round}-score-${player}`
+            );
+
+        scoreElement.innerText = score;
+
+        if (bid !== "" && actual !== "") {
+
+            if (Number(bid) === Number(actual)) {
+                scoreElement.className =
+                    "result matched";
+            } else {
+                scoreElement.className =
+                    "result not-matched";
+            }
+
+        } else {
+
+            scoreElement.className = "result";
+
+        }
+    }
+
+    calculateTotals();
+}
+
+
+/* CALCULATE TOTAL SCORES */
+
+function calculateTotals() {
+
+    const totals = [0, 0, 0, 0, 0];
+
+    for (let round = 1; round <= roundNumber; round++) {
+
+        for (let player = 1; player <= 5; player++) {
+
+            const bidElement =
+                document.getElementById(
+                    `round-${round}-bid-${player}`
+                );
+
+            const actualElement =
+                document.getElementById(
+                    `round-${round}-actual-${player}`
+                );
+
+            if (!bidElement || !actualElement) {
+                continue;
+            }
+
+            const bid = bidElement.value;
+            const actual = actualElement.value;
+
+            totals[player - 1] +=
+                calculateScore(bid, actual);
+        }
+    }
+
+
+    for (let i = 1; i <= 5; i++) {
+
+        document.getElementById(
+            `total${i}`
+        ).innerText = totals[i - 1];
+
+    }
+}
+
+
+/* REMOVE ROUND */
+
+function removeRound(round) {
+
+    const element =
+        document.getElementById("round-" + round);
+
+    if (element) {
+        element.remove();
+    }
+
+    calculateTotals();
+}
+
+
+/* UPDATE PLAYER NAMES */
+
+function updateNames() {
+
+    for (let i = 1; i <= 5; i++) {
+
+        const name =
+            document.getElementById(
+                "player" + i
+            ).value || "Player " + i;
+
+        document.getElementById(
+            "scoreName" + i
+        ).innerText = name;
+
+
+        // Update names inside existing rounds
+
+        for (let round = 1; round <= roundNumber; round++) {
+
+            const element =
+                document.getElementById(
+                    `round-${round}-name-${i}`
+                );
+
+            if (element) {
+                element.innerText = name;
+            }
+        }
+    }
+}
+
+
+/* RESET GAME */
+
+function resetGame() {
+
+    if (!confirm("Are you sure you want to reset the game?")) {
+        return;
+    }
+
+    document.getElementById("rounds").innerHTML = "";
+
+    roundNumber = 0;
+
+    for (let i = 1; i <= 5; i++) {
+
+        document.getElementById(
+            "player" + i
+        ).value = "Player " + i;
+
+        document.getElementById(
+            "scoreName" + i
+        ).innerText = "Player " + i;
+
+        document.getElementById(
+            "total" + i
+        ).innerText = "0";
+    }
+}
+
+
+/* Start with Round 1 */
+
+addRound();
+
+</script>
+
+</body>
+</html>
