@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏆 YOU WON! Champion Victory 👑</title>
+  <style>
+    @keyframes floatTrophy {
+      0% { transform: translateY(0px) rotate(0deg) scale(1); }
+      50% { transform: translateY(-12px) rotate(4deg) scale(1.08); }
+      100% { transform: translateY(0px) rotate(0deg) scale(1); }
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4), 0 0 30px rgba(255, 215, 0, 0.2); }
+      50% { box-shadow: 0 0 35px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5); }
+      100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4), 0 0 30px rgba(255, 215, 0, 0.2); }
+    }
+    @keyframes goldShine {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes bounceBadge {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+    .animated-trophy {
+      display: inline-block;
+      animation: floatTrophy 3s ease-in-out infinite;
+    }
+    .glowing-card {
+      animation: pulseGlow 2.5s ease-in-out infinite;
+    }
+    .shine-text {
+      background: linear-gradient(90deg, #FFE259 0%, #FFA751 50%, #FFE259 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: goldShine 3s linear infinite;
+    }
+    .badge-pulse {
+      animation: bounceBadge 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #0b0f19; margin: 0; padding: 25px 10px; color: #f8fafc;">
+  <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.6); border: 2px solid #eab308;">
+    
+    <!-- Animated Celebration Header -->
+    <div style="background: linear-gradient(135deg, #4c1d95 0%, #1e1b4b 50%, #7c2d12 100%); padding: 40px 20px; text-align: center; border-bottom: 2px solid #eab308; position: relative;">
+      
+      <!-- Animated Floating Trophy Icon -->
+      <div style="margin-bottom: 15px;">
+        <span class="animated-trophy" style="font-size: 72px; line-height: 1; filter: drop-shadow(0 0 20px rgba(234, 179, 8, 0.8));">🏆</span>
+      </div>
+
+      <!-- Animated Crown Badge -->
+      <div class="badge-pulse" style="display: inline-block; background: linear-gradient(90deg, #eab308, #f59e0b); color: #000000; font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 6px 18px; border-radius: 30px; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5); margin-bottom: 15px;">
+        👑 VICTORY CHAMPION
+      </div>
+
+      <h1 class="shine-text" style="margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 1px; color: #fef08a;">
+        YOU ARE THE WINNER!
+      </h1>
+      <p style="margin: 10px 0 0; font-size: 17px; color: #cbd5e1; font-weight: 500;">
+        Kachhu Ful Table: <strong style="color: #fde047;">{{ game_name }}</strong>
+      </p>
+    </div>
+
+    <!-- Main Content Shell -->
+    <div style="padding: 35px 30px;">
+      
+      <p style="font-size: 20px; color: #ffffff; margin-top: 0; font-weight: 600;">
+        Congratulations, <span style="color: #fde047; font-weight: 800;">{{ player_name }}</span>! 🎉
+      </p>
+
+      <p style="font-size: 16px; color: #94a3b8; line-height: 1.7; margin-bottom: 25px;">
+        What an unbelievable performance! You dominated the table, called your bids with laser accuracy, and finished in <strong style="color: #facc15;">1st Place</strong> on table <strong style="color: #ffffff;">"{{ game_name }}"</strong>.
+      </p>
+
+      <!-- Glowing Champion Trophy Box -->
+      <div class="glowing-card" style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(124, 45, 18, 0.25) 100%); border: 2px solid #facc15; border-radius: 16px; padding: 30px 20px; text-align: center; margin: 30px 0; background-color: #1e1b4b;">
+        <div style="font-size: 45px; margin-bottom: 5px;">✨ 🥇 ✨</div>
+        <span style="color: #fde047; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 8px;">FINAL CHAMPION SCORE</span>
+        
+        <div style="font-size: 44px; font-weight: 900; color: #ffffff; text-shadow: 0 0 15px rgba(250, 204, 21, 0.6); margin: 5px 0;">
+          {{ player_score }} <span style="font-size: 22px; color: #facc15;">PTS</span>
+        </div>
+
+        <p style="font-size: 14px; color: #cbd5e1; margin: 10px 0 0;">
+          🌟 Ranked #1 Winner against all opponents at the table!
+        </p>
+      </div>
+
+      <!-- Celebration Highlights -->
+      <div style="background: rgba(255, 255, 255, 0.05); border-left: 4px solid #facc15; padding: 18px 20px; border-radius: 8px; margin-bottom: 30px;">
+        <h3 style="margin: 0 0 8px; font-size: 16px; color: #fde047; font-weight: 700;">🃏 Champion Table Highlights:</h3>
+        <ul style="margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.8;">
+          <li>Mastered the Ka-Chu-Fu-L trump rotations!</li>
+          <li>Outsmarted the dealer restrictions & hit exact trick bids.</li>
+          <li>Crowned Table Leader on final scorecard analysis.</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center; margin: 35px 0 15px;">
+        <a href="http://127.0.0.1:8000/" style="display: inline-block; background: linear-gradient(90deg, #eab308 0%, #ca8a04 100%); color: #000000; font-size: 16px; font-weight: 900; text-decoration: none; padding: 14px 32px; border-radius: 50px; box-shadow: 0 6px 20px rgba(234, 179, 8, 0.4); letter-spacing: 0.5px;">
+          🎮 PLAY AGAIN & DEFEND TITLE
+        </a>
+      </div>
+
+      <p style="font-size: 15px; color: #94a3b8; text-align: center; margin-top: 25px;">
+        Keep the momentum going! Challenge your friends to another game.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #090d16; border-top: 1px solid rgba(234, 179, 8, 0.3); padding: 20px; text-align: center; font-size: 13px; color: #64748b;">
+      Sent with ❤️ by <strong style="color: #facc15;">Kachhu Ful Table</strong><br>
+      © 2026 Kachhu Ful Game. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

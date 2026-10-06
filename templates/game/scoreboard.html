@@ -2,58 +2,307 @@
 {% block content %}
 <div class="scoreboard-shell">
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
-    <div><p class="eyebrow">Manual score board</p><h1 class="display-6 fw-bold mb-1">Kachhu Ful scores</h1><p class="text-secondary mb-0">Exact bid scoring: (bid + 1) × 10 + bid. A missed bid scores 0.</p></div>
-    <div class="d-flex gap-2"><button class="btn btn-success" id="add-round" type="button">Add round</button><button class="btn btn-outline-secondary" id="reset-game" type="button">Reset</button></div>
+    <div>
+      <p class="eyebrow">Manual score board</p>
+      <h1 class="display-6 fw-bold mb-1">Kachhu Ful scores</h1>
+      <p class="text-secondary mb-0">Exact bid scoring: (bid + 1) × 10 + bid. A missed bid scores 0.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-success" id="add-round" type="button">Add round</button>
+      <button class="btn btn-info text-white fw-bold" id="view-cumulative-matrix" type="button">📊 View Matrix Till Now</button>
+      <button class="btn btn-warning fw-bold" id="finish-game" type="button">🏆 Finish Game</button>
+      <button class="btn btn-outline-secondary" id="reset-game" type="button">Reset</button>
+    </div>
   </div>
 
-  {% if game %}<div class="alert alert-success">Scores are loaded for <strong>{{ game.name }}</strong>. Player names come from this table.</div>{% endif %}<section class="surface p-4 mb-4"><div class="section-heading"><h2 class="h4 mb-0">Players</h2><span class="small text-secondary">{{ player_names|length|default:5 }}-player score board</span></div><div class="row g-3 mt-1" id="player-fields"></div></section>
-  <div class="alert alert-info py-2"><strong>Round rule:</strong> each bid and actual-trick value must be between 0 and {{ max_cards }}. Exact bids score <strong>(bid + 1) × 10 + bid</strong>; missed bids score 0.</div>
+  {% if game %}<div class="alert alert-success">Scores loaded for <strong>{{ game.name }}</strong> ({{ game.deck_count }} Deck{% if game.deck_count > 1 %}s{% endif %} · {{ game.deck_count|add:0 }}×52 cards).</div>{% endif %}
+
+  <section class="surface p-4 mb-4">
+    <div class="section-heading flex-wrap">
+      <div>
+        <h2 class="h4 mb-0">Players</h2>
+        <span class="small text-secondary" id="player-count-label">{{ player_names|length|default:5 }}-player table ({{ deck_count|default:1 }} Deck)</span>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-success fw-bold" id="add-player-btn" type="button">➕ Add Player</button>
+        <button class="btn btn-sm btn-outline-danger" id="remove-player-btn" type="button">➖ Remove Player</button>
+      </div>
+    </div>
+    <div class="row g-3 mt-2" id="player-fields"></div>
+  </section>
+
+  <!-- Cards & Max Tricks Live Calculator Banner -->
+  <div class="surface p-3 mb-4 border-start border-4 border-success bg-white shadow-sm" id="calc-summary-banner">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-2">
+      <div>
+        <span class="badge bg-success text-white font-monospace text-uppercase mb-1">🎴 Cards & Trick Calculator</span>
+        <h3 class="h5 fw-bold mb-0 text-dark" id="calc-title">5 Players · 1 Deck · Max Hand: 10 Cards</h3>
+      </div>
+      <div class="d-flex gap-3 flex-wrap align-items-center">
+        <div class="d-flex flex-column align-items-start border-end pe-3">
+          <label class="form-label small text-secondary mb-1 fw-bold" for="scoreboard-deck-select">Card Decks</label>
+          <select class="form-select form-select-sm fw-bold border-success text-success" id="scoreboard-deck-select" style="min-width: 155px;">
+            <option value="1">1 Deck (52 cards)</option>
+            <option value="2">2 Decks (104 cards)</option>
+            <option value="3">3 Decks (156 cards)</option>
+          </select>
+        </div>
+        <div class="text-center px-2 border-end">
+          <small class="d-block text-secondary">Players (N)</small>
+          <strong class="fs-5 text-success" id="calc-pcount">5</strong>
+        </div>
+        <div class="text-center px-2 border-end">
+          <small class="d-block text-secondary">Max Hand / Player</small>
+          <strong class="fs-5 text-primary" id="calc-maxhand">10 cards</strong>
+        </div>
+        <div class="text-center px-2 border-end">
+          <small class="d-block text-secondary">Total Deck Cards</small>
+          <strong class="fs-5 text-dark" id="calc-deck-total">52 Cards</strong>
+        </div>
+        <div class="text-center px-2">
+          <small class="d-block text-secondary">Trick Rule</small>
+          <strong class="fs-6 text-success fw-bold">1 Trick = 1 Card/Player</strong>
+        </div>
+      </div>
+    </div>
+    <div class="p-2 bg-light rounded border d-flex flex-wrap align-items-center justify-content-between gap-2 small mt-2">
+      <div>
+        <span class="fw-bold text-success me-1">💡 Deck Capacity Guide:</span>
+        <span>6 Players + 2 Decks $\to$ Max <strong>17 Cards</strong> (102/104). To play up to <strong>19 Cards</strong> with 6 Players, switch to <strong>3 Decks</strong> (156 Cards).</span>
+      </div>
+      <button class="btn btn-sm btn-outline-success py-0" id="quick-switch-3decks-btn" type="button">⚡ Switch to 3 Decks</button>
+    </div>
+  </div>
+
+  <div class="alert alert-info py-2"><strong>Round flow:</strong> 1) Enter Bids & click <strong>🔒 Save Bids</strong>. 2) Play round & enter Actual Tricks, then click <strong>✅ Finish Round</strong>. 3) Click <strong>📊 View Matrix Till Now</strong> anytime to see player points round-by-round.</div>
+  <div class="alert alert-secondary py-2 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div><strong>Trump Sequence (Ka-Chu-Fu-L):</strong></div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <span class="badge bg-dark">1st: Ka (Kali · ♠)</span>
+      <span class="badge bg-danger">2nd: Chu (Charkat · ♦)</span>
+      <span class="badge bg-dark">3rd: Fu (Falli · ♣)</span>
+      <span class="badge bg-danger">4th: L (Lal · ♥)</span>
+      <span class="text-secondary small ms-1">(Repeats every 4 rounds)</span>
+    </div>
+  </div>
+
   <section class="surface p-4 mb-4"><div class="section-heading"><h2 class="h4 mb-0">All-round totals</h2><span class="small text-secondary">Updated as you type</span></div><div class="row g-3 mt-1" id="totals"></div></section>
   <div id="rounds"></div>
   <div class="empty-state surface" id="empty-state">No rounds yet. Add a round to start recording bids.</div>
 </div>
+
+<!-- Cumulative Matrix Scorecard Modal -->
+<div class="modal fade" id="cumulative-scorecard-modal" tabindex="-1" aria-labelledby="cumulativeScorecardTitle" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content surface border-0 shadow-lg">
+      <div class="modal-header bg-dark text-white">
+        <h2 class="modal-title fs-4 fw-bold mb-0" id="cumulativeScorecardTitle">📊 Scorecard Matrix Till Now</h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <p class="eyebrow mb-0">Cumulative Round-by-Round Breakdown</p>
+            <h3 class="h5 fw-bold mb-0" id="matrix-subtitle">Scores up to Round 1</h3>
+          </div>
+          <span class="badge bg-success fs-6 px-3 py-2" id="matrix-leader-badge">Leader: Player 1</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle table-bordered score-table">
+            <thead class="table-dark" id="matrix-head"></thead>
+            <tbody id="matrix-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Matrix</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Final Scorecard Modal -->
+<div class="modal fade" id="final-scorecard-modal" tabindex="-1" aria-labelledby="finalScorecardTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content surface border-0 shadow-lg">
+      <div class="modal-header bg-dark text-white">
+        <h2 class="modal-title fs-4 fw-bold mb-0" id="finalScorecardTitle">🏆 Final Game Scorecard</h2>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="text-center mb-4">
+          <p class="eyebrow mb-1">Kachhu Ful Table Finished</p>
+          <h1 class="display-6 fw-bold text-success mb-2" id="winner-announcement">🏆 Champion: Player 1</h1>
+          <p class="text-secondary mb-0">Total Rounds Recorded: <strong id="rounds-played-count">0</strong></p>
+          <div class="alert alert-info border-info d-none text-center my-3" id="email-status-banner"></div>
+        </div>
+
+        <div class="row g-3 mb-4" id="podium-cards"></div>
+
+        <h3 class="h5 fw-bold mb-3">Final Leaderboard Standings</h3>
+        <div class="table-responsive">
+          <table class="table align-middle table-hover score-table border">
+            <thead class="table-dark">
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Final Points</th>
+                <th>Total Bids</th>
+                <th>Actual Tricks</th>
+                <th>Exact Hits</th>
+                <th>Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="final-leaderboard-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close & Edit</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Scorecard</button>
+        <a href="{% url 'dashboard' %}" class="btn btn-success">➕ Start New Table</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{ player_names|json_script:"stored-player-names" }}
+{{ registered_users|json_script:"registered-users-data" }}
 <script>
 const storedPlayerNames = JSON.parse(document.getElementById('stored-player-names').textContent);
-const playerNames = storedPlayerNames.length ? storedPlayerNames : Array.from({length: 5}, (_, index) => `Player ${index + 1}`);
-const playerCount = playerNames.length;
-const maxCards = {{ max_cards|default:52 }};
+const registeredUsersList = JSON.parse(document.getElementById('registered-users-data').textContent || '[]');
+let playerNames = storedPlayerNames.length ? storedPlayerNames : Array.from({length: 5}, (_, index) => `Player ${index + 1}`);
+let playerCount = playerNames.length;
+let deckCount = {{ deck_count|default:1 }};
 let roundNumber = 0;
 const rounds = document.getElementById('rounds');
 const emptyState = document.getElementById('empty-state');
 
+const TRUMP_SEQUENCE = [
+  { code: 'Ka', name: 'Kali', suit: 'Spades', symbol: '♠', badgeClass: 'bg-dark text-white' },
+  { code: 'Chu', name: 'Charkat', suit: 'Diamonds', symbol: '♦', badgeClass: 'bg-danger text-white' },
+  { code: 'Fu', name: 'Falli', suit: 'Clubs', symbol: '♣', badgeClass: 'bg-dark text-white' },
+  { code: 'L', name: 'Lal', suit: 'Hearts', symbol: '♥', badgeClass: 'bg-danger text-white' }
+];
+
+function getTrumpForRound(rNum) {
+  return TRUMP_SEQUENCE[(rNum - 1) % TRUMP_SEQUENCE.length];
+}
+
+function getCardsForRound(rNum, pCount, dCount) {
+  const p = Math.max(2, pCount || 5);
+  const d = Math.max(1, dCount || deckCount || 1);
+  const totalCards = 52 * d;
+  const maxHand = Math.max(1, Math.floor(totalCards / p));
+  const cycle = [];
+  for (let i = 1; i <= maxHand; i++) cycle.push(i);
+  for (let i = maxHand - 1; i >= 1; i--) cycle.push(i);
+  return cycle[(rNum - 1) % cycle.length];
+}
+
 function scoreFor(bid, actual) {
-  if (bid === '' || actual === '') return 0;
-  const bidValue = Number(bid);
-  return bidValue === Number(actual) ? ((bidValue + 1) * 10) + bidValue : 0;
+  const bidVal = (bid === '' || bid === null || bid === undefined) ? 0 : Number(bid);
+  const actualVal = (actual === '' || actual === null || actual === undefined) ? 0 : Number(actual);
+  return bidVal === actualVal ? ((bidVal + 1) * 10) + bidVal : 0;
+}
+
+function renderCalculatorBanner() {
+  const totalCards = 52 * deckCount;
+  const maxHand = Math.max(1, Math.floor(totalCards / playerCount));
+  document.getElementById('calc-title').textContent = `${playerCount} Players · ${deckCount} Deck${deckCount > 1 ? 's' : ''} · Max Hand: ${maxHand} Cards`;
+  document.getElementById('calc-pcount').textContent = playerCount;
+  document.getElementById('calc-maxhand').textContent = `${maxHand} cards / player`;
+  document.getElementById('calc-deck-total').textContent = `${totalCards} Cards (${deckCount}×52)`;
+  document.getElementById('player-count-label').textContent = `${playerCount}-player table (${deckCount} Deck${deckCount > 1 ? 's' : ''})`;
+
+  const deckSelect = document.getElementById('scoreboard-deck-select');
+  if (deckSelect && deckSelect.value !== String(deckCount)) {
+    deckSelect.value = String(deckCount);
+  }
 }
 
 function renderPlayers() {
+  const regUserOpts = registeredUsersList.map(u => `<option value="${u.first_name || u.username}">👤 ${u.first_name || u.username}</option>`).join('');
   document.getElementById('player-fields').innerHTML = playerNames.map((name, index) => `
-    <div class="col-sm-6 col-lg"><label class="form-label small fw-bold" for="player-${index}">Player ${index + 1}</label>
-    <input class="form-control player-name" id="player-${index}" value="${name}" data-player="${index}" maxlength="80"></div>`).join('');
+    <div class="col-sm-6 col-lg">
+      <label class="form-label small fw-bold" for="player-${index}">Player ${index + 1}</label>
+      <div class="input-group input-group-sm">
+        <input class="form-control player-name" id="player-${index}" value="${name}" data-player="${index}" maxlength="80">
+        ${registeredUsersList.length ? `<select class="form-select user-quick-select border-success" data-player="${index}" style="max-width: 105px;" title="Select registered user">
+          <option value="" selected>Select...</option>
+          ${regUserOpts}
+        </select>` : ''}
+      </div>
+    </div>`).join('');
+
   document.querySelectorAll('.player-name').forEach((input) => input.addEventListener('input', (event) => {
     playerNames[Number(event.target.dataset.player)] = event.target.value || `Player ${Number(event.target.dataset.player) + 1}`;
     document.querySelectorAll(`[data-name-player="${event.target.dataset.player}"]`).forEach((element) => element.textContent = playerNames[Number(event.target.dataset.player)]);
     renderTotals();
   }));
+
+  document.querySelectorAll('.user-quick-select').forEach((select) => select.addEventListener('change', (event) => {
+    const val = event.target.value;
+    if (!val) return;
+    const pIdx = Number(event.target.dataset.player);
+    const input = document.getElementById(`player-${pIdx}`);
+    if (input) {
+      input.value = val;
+      playerNames[pIdx] = val;
+      document.querySelectorAll(`[data-name-player="${pIdx}"]`).forEach((element) => element.textContent = val);
+      renderTotals();
+    }
+  }));
+}
+
+function addPlayer() {
+  if (playerNames.length >= 8) {
+    showAppAlert('Maximum 8 players supported per table.', 'Player Limit');
+    return;
+  }
+  playerNames.push(`Player ${playerNames.length + 1}`);
+  playerCount = playerNames.length;
+  renderPlayers();
+  renderCalculatorBanner();
+  rebuildAllRounds();
+  renderTotals();
+}
+
+function removePlayer() {
+  if (playerNames.length <= 2) {
+    showAppAlert('At least 2 players required for a game.', 'Player Limit');
+    return;
+  }
+  playerNames.pop();
+  playerCount = playerNames.length;
+  renderPlayers();
+  renderCalculatorBanner();
+  rebuildAllRounds();
+  renderTotals();
 }
 
 function renderTotals() {
   const totals = Array.from({length: playerCount}, () => ({ bids: 0, actual: 0, points: 0 }));
   document.querySelectorAll('.round-card').forEach((round) => {
     for (let player = 0; player < playerCount; player++) {
-      const bid = round.querySelector(`[data-field="bid-${player}"]`).value;
-      const actual = round.querySelector(`[data-field="actual-${player}"]`).value;
-      totals[player].bids += bid === '' ? 0 : Number(bid);
-      totals[player].actual += actual === '' ? 0 : Number(actual);
+      const bidEl = round.querySelector(`[data-field="bid-${player}"]`);
+      const actualEl = round.querySelector(`[data-field="actual-${player}"]`);
+      if (!bidEl || !actualEl) continue;
+      const bid = bidEl.value;
+      const actual = actualEl.value;
+      const bidVal = bid === '' ? 0 : Number(bid);
+      const actualVal = actual === '' ? 0 : Number(actual);
+      totals[player].bids += bidVal;
+      totals[player].actual += actualVal;
       totals[player].points += scoreFor(bid, actual);
     }
   });
-  document.getElementById('totals').innerHTML = totals.map((total, index) => `<div class="col-6 col-md"><div class="score-tile"><span>${playerNames[index]}</span><strong>${total.points}</strong><small>Bid ${total.bids} · Actual ${total.actual}</small></div></div>`).join('');
+  document.getElementById('totals').innerHTML = totals.map((total, index) => `<div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-2"><div class="score-tile"><span>${playerNames[index]}</span><strong>${total.points}</strong><small>Bid ${total.bids} · Actual ${total.actual}</small></div></div>`).join('');
 }
 
 function updateRound(round) {
+  const roundCards = Number(round.dataset.cards || 1);
   let bidTotal = 0;
   let actualTotal = 0;
   let pointsTotal = 0;
@@ -61,36 +310,540 @@ function updateRound(round) {
     const bid = round.querySelector(`[data-field="bid-${player}"]`);
     const actual = round.querySelector(`[data-field="actual-${player}"]`);
     const result = round.querySelector(`[data-field="score-${player}"]`);
+    if (!bid || !actual || !result) continue;
     const score = scoreFor(bid.value, actual.value);
-    bidTotal += bid.value === '' ? 0 : Number(bid.value);
-    actualTotal += actual.value === '' ? 0 : Number(actual.value);
+    const bidVal = bid.value === '' ? 0 : Number(bid.value);
+    const actualVal = actual.value === '' ? 0 : Number(actual.value);
+    bidTotal += bidVal;
+    actualTotal += actualVal;
     pointsTotal += score;
     result.textContent = score;
-    result.className = `round-result ${bid.value !== '' && actual.value !== '' ? (Number(bid.value) === Number(actual.value) ? 'matched' : 'missed') : ''}`;
+    result.className = `round-result ${bidVal === actualVal ? 'matched' : 'missed'}`;
   }
-  round.querySelector('[data-field="bid-total"]').textContent = bidTotal;
-  round.querySelector('[data-field="actual-total"]').textContent = actualTotal;
-  round.querySelector('[data-field="points-total"]').textContent = pointsTotal;
+  const bidTotalEl = round.querySelector('[data-field="bid-total"]');
+  const actualTotalEl = round.querySelector('[data-field="actual-total"]');
+  const pointsTotalEl = round.querySelector('[data-field="points-total"]');
+  if (bidTotalEl) bidTotalEl.textContent = bidTotal;
+  if (actualTotalEl) actualTotalEl.textContent = actualTotal;
+  if (pointsTotalEl) pointsTotalEl.textContent = pointsTotal;
+
+  const trickValEl = round.querySelector('[data-field="trick-validation"]');
+  if (trickValEl) {
+    if (round.dataset.phase === '1') {
+      trickValEl.className = 'd-none';
+      trickValEl.textContent = '';
+    } else if (actualTotal === roundCards) {
+      trickValEl.className = 'badge bg-success ms-1';
+      trickValEl.textContent = `✅ ${actualTotal}/${roundCards} Tricks Match`;
+    } else {
+      trickValEl.className = 'badge bg-warning text-dark ms-1';
+      trickValEl.textContent = `⚠️ Sum ${actualTotal} vs Max ${roundCards}`;
+    }
+  }
   renderTotals();
+}
+
+function rebuildAllRounds() {
+  const roundElements = document.querySelectorAll('.round-card');
+  const totalDeckCards = 52 * deckCount;
+  roundElements.forEach(round => {
+    const rNum = Number(round.dataset.round);
+    const roundCards = getCardsForRound(rNum, playerCount, deckCount);
+    round.dataset.cards = roundCards;
+
+    const badgesContainer = round.querySelector('.round-badges-container');
+    if (badgesContainer) {
+      badgesContainer.innerHTML = `
+        <span class="badge bg-success-subtle text-success-emphasis border fs-6 px-3 py-1 fw-bold">🃏 ${roundCards} card${roundCards > 1 ? 's' : ''} / player</span>
+        <span class="badge bg-warning-subtle text-warning-emphasis border fs-6 px-3 py-1 fw-bold">🎯 Max ${roundCards} trick${roundCards > 1 ? 's' : ''}</span>
+        <span class="badge bg-secondary-subtle text-body-emphasis border fs-6 px-3 py-1">🎴 ${roundCards * playerCount} dealt (${totalDeckCards - (roundCards * playerCount)} undealt)</span>
+      `;
+    }
+
+    const tableHeader = round.querySelector('thead');
+    if (tableHeader) {
+      tableHeader.innerHTML = `
+        <tr>
+          <th style="min-width: 90px;">Player</th>
+          <th style="min-width: 130px;">Bid (0–${roundCards})</th>
+          <th style="min-width: 160px;">Actual Tricks (0–${roundCards})</th>
+          <th style="min-width: 90px;">Round Points</th>
+        </tr>
+      `;
+    }
+
+    const existingBids = {};
+    const existingActuals = {};
+    round.querySelectorAll('.bid-input').forEach(input => {
+      const pIdx = input.dataset.field.replace('bid-', '');
+      existingBids[pIdx] = input.value;
+    });
+    round.querySelectorAll('.actual-input').forEach(input => {
+      const pIdx = input.dataset.field.replace('actual-', '');
+      existingActuals[pIdx] = input.value;
+    });
+
+    const isPhase2or3 = round.dataset.phase !== '1';
+
+    const tableBody = round.querySelector('tbody');
+    if (tableBody) {
+      tableBody.innerHTML = playerNames.map((name, player) => `<tr>
+        <th data-name-player="${player}">${name}</th>
+        <td><input class="form-control bid-input text-center" type="number" min="0" max="${roundCards}" data-field="bid-${player}" value="${existingBids[player] !== undefined ? existingBids[player] : 0}" placeholder="0" ${isPhase2or3 ? 'disabled' : ''}></td>
+        <td><input class="form-control actual-input text-center" type="number" min="0" max="${roundCards}" data-field="actual-${player}" value="${existingActuals[player] !== undefined ? existingActuals[player] : 0}" placeholder="0" ${isPhase2or3 ? '' : 'disabled'}></td>
+        <td><span class="round-result matched" data-field="score-${player}">0</span></td>
+      </tr>`).join('') + `
+      <tr class="summary-row"><th>Round totals</th><th data-field="bid-total">0</th><th><span data-field="actual-total">0</span><span data-field="trick-validation" class="badge bg-secondary ms-1"></span></th><th data-field="points-total">0</th></tr>`;
+    }
+
+    round.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
+      if (Number(input.value) > roundCards) {
+        input.value = roundCards;
+        input.classList.add('is-invalid');
+      } else {
+        input.classList.remove('is-invalid');
+      }
+      updateRound(round);
+    }));
+
+    updateRound(round);
+  });
 }
 
 function addRound() {
   roundNumber += 1;
+  const currentRoundNum = roundNumber;
+  const trump = getTrumpForRound(currentRoundNum);
+  const roundCards = getCardsForRound(currentRoundNum, playerCount, deckCount);
+  const totalDeckCards = 52 * deckCount;
   const round = document.createElement('section');
   round.className = 'surface p-4 mb-4 round-card';
-  round.dataset.round = roundNumber;
-  round.innerHTML = `<div class="section-heading"><h2 class="h4 mb-0">Round ${roundNumber}</h2><span class="small text-secondary">Maximum ${maxCards} tricks per player</span><button class="btn btn-sm btn-outline-danger remove-round" type="button">Remove round</button></div><div class="table-responsive mt-3"><table class="table score-table align-middle mb-0"><thead><tr><th>Player</th><th>Bid</th><th>Actual tricks</th><th>Round points</th></tr></thead><tbody>${playerNames.map((name, player) => `<tr><th data-name-player="${player}">${name}</th><td><input class="form-control" type="number" min="0" max="${maxCards}" data-field="bid-${player}" placeholder="0"></td><td><input class="form-control" type="number" min="0" max="${maxCards}" data-field="actual-${player}" placeholder="0"></td><td><span class="round-result" data-field="score-${player}">0</span></td></tr>`).join('')}<tr class="summary-row"><th>Round totals</th><th data-field="bid-total">0</th><th data-field="actual-total">0</th><th data-field="points-total">0</th></tr></tbody></table></div>`;
+  round.dataset.round = currentRoundNum;
+  round.dataset.cards = roundCards;
+  round.dataset.phase = '1';
+
+  round.innerHTML = `<div class="section-heading d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <h2 class="h4 mb-0">Round ${currentRoundNum}</h2>
+      <span class="badge ${trump.badgeClass} fs-6 px-3 py-1">Trump: <strong>${trump.code}</strong> (${trump.name} ${trump.symbol})</span>
+      <span class="badge bg-primary fs-6 px-3 py-1 phase-badge">Phase 1: Enter Bids</span>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap round-badges-container">
+      <span class="badge bg-success-subtle text-success-emphasis border fs-6 px-3 py-1 fw-bold">🃏 ${roundCards} card${roundCards > 1 ? 's' : ''} / player</span>
+      <span class="badge bg-warning-subtle text-warning-emphasis border fs-6 px-3 py-1 fw-bold">🎯 Max ${roundCards} trick${roundCards > 1 ? 's' : ''}</span>
+      <span class="badge bg-secondary-subtle text-body-emphasis border fs-6 px-3 py-1">🎴 ${roundCards * playerCount} dealt (${totalDeckCards - (roundCards * playerCount)} undealt)</span>
+      <button class="btn btn-sm btn-outline-secondary toggle-round-btn d-none" type="button">👁️ Hide Table</button>
+      <button class="btn btn-sm btn-outline-danger remove-round" type="button">Remove round</button>
+    </div>
+  </div>
+
+  <div class="round-body">
+    <div class="table-responsive mt-3">
+      <table class="table score-table align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="min-width: 90px;">Player</th>
+            <th style="min-width: 130px;">Bid (0–${roundCards})</th>
+            <th style="min-width: 160px;">Actual Tricks (0–${roundCards})</th>
+            <th style="min-width: 90px;">Round Points</th>
+          </tr>
+        </thead>
+        <tbody>${playerNames.map((name, player) => `<tr>
+          <th data-name-player="${player}">${name}</th>
+          <td><input class="form-control bid-input text-center" type="number" min="0" max="${roundCards}" data-field="bid-${player}" value="0" placeholder="0"></td>
+          <td><input class="form-control actual-input text-center" type="number" min="0" max="${roundCards}" data-field="actual-${player}" value="0" placeholder="0" disabled></td>
+          <td><span class="round-result matched" data-field="score-${player}">10</span></td>
+        </tr>`).join('')}
+        <tr class="summary-row"><th>Round totals</th><th data-field="bid-total">0</th><th><span data-field="actual-total">0</span><span data-field="trick-validation" class="badge bg-secondary ms-1"></span></th><th data-field="points-total">0</th></tr></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mt-3 pt-3 border-top">
+      <div class="d-flex flex-column flex-sm-row gap-2">
+        <button class="btn btn-primary btn-sm save-bids-btn w-100 w-sm-auto mb-1 mb-sm-0" type="button">🔒 Save Bids & Play Round</button>
+        <button class="btn btn-success btn-sm finish-round-btn d-none w-100 w-sm-auto mb-1 mb-sm-0" type="button">✅ Finish Round & Save Tricks</button>
+        <button class="btn btn-outline-secondary btn-sm edit-bids-btn d-none w-100 w-sm-auto mb-1 mb-sm-0" type="button">✏️ Edit Bids</button>
+      </div>
+      <button class="btn btn-outline-info btn-sm view-till-now-btn w-100 w-sm-auto" type="button" data-round="${currentRoundNum}">📊 View Scorecard Till Round ${currentRoundNum}</button>
+    </div>
+  </div>
+
+  <div class="till-now-strip mt-3 p-3 bg-light border rounded d-none">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <strong class="text-success me-2">📊 Cumulative Points Till Round ${currentRoundNum}:</strong>
+        <div class="d-inline-flex flex-wrap gap-2 mt-1 mt-sm-0 till-now-badges"></div>
+      </div>
+      <button class="btn btn-outline-info btn-sm view-till-now-strip-btn ms-auto" type="button" data-round="${currentRoundNum}">📊 View Full Matrix</button>
+    </div>
+  </div>`;
+
   rounds.appendChild(round);
   emptyState.classList.add('d-none');
-  round.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => { if (Number(input.value) > maxCards) { input.value = maxCards; input.classList.add('is-invalid'); } else { input.classList.remove('is-invalid'); } updateRound(round); }));
+
+  const saveBidsBtn = round.querySelector('.save-bids-btn');
+  const finishRoundBtn = round.querySelector('.finish-round-btn');
+  const editBidsBtn = round.querySelector('.edit-bids-btn');
+  const toggleBtn = round.querySelector('.toggle-round-btn');
+  const phaseBadge = round.querySelector('.phase-badge');
+  const roundBody = round.querySelector('.round-body');
+  const tillNowStrip = round.querySelector('.till-now-strip');
+  const tillNowBadges = round.querySelector('.till-now-badges');
+  const bidInputs = round.querySelectorAll('.bid-input');
+  const actualInputs = round.querySelectorAll('.actual-input');
+  const viewTillNowBtn = round.querySelector('.view-till-now-btn');
+  const viewTillNowStripBtn = round.querySelector('.view-till-now-strip-btn');
+
+  function updateTillNowStrip() {
+    const rNum = Number(round.dataset.round);
+    const roundCardsList = Array.from(document.querySelectorAll('.round-card')).filter(r => Number(r.dataset.round) <= rNum);
+    const cumTotals = Array.from({length: playerCount}, () => 0);
+    roundCardsList.forEach(r => {
+      for (let p = 0; p < playerCount; p++) {
+        const bEl = r.querySelector(`[data-field="bid-${p}"]`);
+        const aEl = r.querySelector(`[data-field="actual-${p}"]`);
+        const b = bEl ? bEl.value : 0;
+        const a = aEl ? aEl.value : 0;
+        cumTotals[p] += scoreFor(b, a);
+      }
+    });
+    tillNowBadges.innerHTML = playerNames.map((name, pIdx) => `<span class="badge bg-white text-dark border"><strong>${name}:</strong> ${cumTotals[pIdx]} pts</span>`).join('');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    roundBody.classList.toggle('d-none');
+    toggleBtn.textContent = roundBody.classList.contains('d-none') ? `👁️ Expand Round ${currentRoundNum}` : `👁️ Hide Table`;
+  });
+
+  saveBidsBtn.addEventListener('click', () => {
+    bidInputs.forEach(input => input.disabled = true);
+    actualInputs.forEach(input => input.disabled = false);
+    saveBidsBtn.classList.add('d-none');
+    finishRoundBtn.classList.remove('d-none');
+    editBidsBtn.classList.remove('d-none');
+    phaseBadge.className = 'badge bg-warning text-dark fs-6 px-3 py-1 phase-badge';
+    phaseBadge.textContent = 'Phase 2: Enter Actual Tricks';
+    round.dataset.phase = '2';
+    updateRound(round);
+  });
+
+  editBidsBtn.addEventListener('click', () => {
+    bidInputs.forEach(input => input.disabled = false);
+    saveBidsBtn.classList.remove('d-none');
+    finishRoundBtn.classList.add('d-none');
+    phaseBadge.className = 'badge bg-primary fs-6 px-3 py-1 phase-badge';
+    phaseBadge.textContent = 'Phase 1: Enter Bids';
+    round.dataset.phase = '1';
+  });
+
+  finishRoundBtn.addEventListener('click', () => {
+    bidInputs.forEach(input => input.disabled = true);
+    actualInputs.forEach(input => input.disabled = true);
+    finishRoundBtn.classList.add('d-none');
+    editBidsBtn.classList.remove('d-none');
+    toggleBtn.classList.remove('d-none');
+    phaseBadge.className = 'badge bg-success fs-6 px-3 py-1 phase-badge';
+    phaseBadge.textContent = '✅ Round Completed';
+    round.dataset.phase = '3';
+    updateRound(round);
+
+    roundBody.classList.add('d-none');
+    toggleBtn.textContent = `👁️ Expand Round ${currentRoundNum}`;
+
+    updateTillNowStrip();
+    tillNowStrip.classList.remove('d-none');
+
+    if (currentRoundNum === roundNumber) {
+      addRound();
+      const newRounds = document.querySelectorAll('.round-card');
+      const latestRound = newRounds[newRounds.length - 1];
+      if (latestRound) {
+        setTimeout(() => {
+          latestRound.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 250);
+      }
+    }
+  });
+
+  viewTillNowBtn.addEventListener('click', () => showCumulativeScorecard(currentRoundNum));
+  viewTillNowStripBtn.addEventListener('click', () => showCumulativeScorecard(currentRoundNum));
+
+  round.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
+    if (Number(input.value) > roundCards) {
+      input.value = roundCards;
+      input.classList.add('is-invalid');
+    } else {
+      input.classList.remove('is-invalid');
+    }
+    updateRound(round);
+  }));
+
   updateRound(round);
-  round.querySelector('.remove-round').addEventListener('click', () => { round.remove(); emptyState.classList.toggle('d-none', rounds.children.length > 0); renderTotals(); });
+  round.querySelector('.remove-round').addEventListener('click', () => {
+    round.remove();
+    emptyState.classList.toggle('d-none', rounds.children.length > 0);
+    renderTotals();
+  });
+
+  return round;
+}
+
+function showCumulativeScorecard(targetRoundNumber) {
+  const roundCardsList = Array.from(document.querySelectorAll('.round-card'));
+  const filteredRounds = targetRoundNumber ? roundCardsList.filter(r => Number(r.dataset.round) <= targetRoundNumber) : roundCardsList;
+  const maxRoundIndex = filteredRounds.length ? Math.max(...filteredRounds.map(r => Number(r.dataset.round))) : roundNumber;
+
+  document.getElementById('matrix-subtitle').textContent = `Round-by-Round breakdown up to Round ${maxRoundIndex}`;
+
+  const headRow = `<tr>
+    <th>Round</th>
+    <th>Trump</th>
+    <th>Cards / Player</th>
+    <th>Max Tricks</th>
+    ${playerNames.map(name => `<th>${name}</th>`).join('')}
+  </tr>`;
+  document.getElementById('matrix-head').innerHTML = headRow;
+
+  const cumulativeTotals = Array.from({length: playerCount}, () => ({ points: 0, bids: 0, actual: 0 }));
+
+  const bodyRows = filteredRounds.map(round => {
+    const rNum = Number(round.dataset.round);
+    const trump = getTrumpForRound(rNum);
+    const rCards = round.dataset.cards;
+
+    const playerCells = playerNames.map((_, pIdx) => {
+      const bEl = round.querySelector(`[data-field="bid-${pIdx}"]`);
+      const aEl = round.querySelector(`[data-field="actual-${pIdx}"]`);
+      const bidVal = bEl ? bEl.value : 0;
+      const actualVal = aEl ? aEl.value : 0;
+      const bNum = bidVal === '' ? 0 : Number(bidVal);
+      const aNum = actualVal === '' ? 0 : Number(actualVal);
+      const score = scoreFor(bidVal, actualVal);
+      const isMatch = bNum === aNum;
+
+      cumulativeTotals[pIdx].points += score;
+      cumulativeTotals[pIdx].bids += bNum;
+      cumulativeTotals[pIdx].actual += aNum;
+
+      return `<td class="${isMatch ? 'table-success' : 'table-danger'}">
+        <strong class="${isMatch ? 'text-success' : 'text-danger'} fs-5">+${score}</strong>
+        <div class="small text-secondary">Bid ${bNum} · Act ${aNum}</div>
+      </td>`;
+    }).join('');
+
+    return `<tr>
+      <td><strong>Round ${rNum}</strong></td>
+      <td><span class="badge ${trump.badgeClass}">${trump.code} (${trump.symbol})</span></td>
+      <td>${rCards} cards</td>
+      <td><span class="badge bg-warning text-dark">${rCards} tricks</span></td>
+      ${playerCells}
+    </tr>`;
+  });
+
+  const totalPointsRow = `<tr class="table-dark fw-bold fs-5">
+    <td colspan="4">Cumulative Points</td>
+    ${cumulativeTotals.map(t => `<td class="text-warning">${t.points} pts</td>`).join('')}
+  </tr>`;
+
+  const totalBidsRow = `<tr class="table-secondary small">
+    <td colspan="4">Total Bids</td>
+    ${cumulativeTotals.map(t => `<td>Bid Total: ${t.bids}</td>`).join('')}
+  </tr>`;
+
+  const totalActualRow = `<tr class="table-secondary small">
+    <td colspan="4">Total Actual Tricks</td>
+    ${cumulativeTotals.map(t => `<td>Actual Total: ${t.actual}</td>`).join('')}
+  </tr>`;
+
+  document.getElementById('matrix-body').innerHTML = bodyRows.join('') + totalPointsRow + totalBidsRow + totalActualRow;
+
+  let topLeaderIdx = 0;
+  let topPoints = -1;
+  cumulativeTotals.forEach((t, idx) => {
+    if (t.points > topPoints) {
+      topPoints = t.points;
+      topLeaderIdx = idx;
+    }
+  });
+  document.getElementById('matrix-leader-badge').textContent = `Current Leader: ${playerNames[topLeaderIdx]} (${topPoints} pts)`;
+
+  const matrixModalElement = document.getElementById('cumulative-scorecard-modal');
+  const matrixModal = new bootstrap.Modal(matrixModalElement);
+  matrixModal.show();
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+function showFinalScorecard() {
+  const playerStats = playerNames.map((name, player) => ({
+    playerIndex: player,
+    name: name,
+    points: 0,
+    totalBids: 0,
+    totalActual: 0,
+    exactHits: 0,
+    totalRounds: 0,
+  }));
+
+  const roundCardsList = document.querySelectorAll('.round-card');
+  const roundsCount = roundCardsList.length;
+
+  roundCardsList.forEach((round) => {
+    for (let player = 0; player < playerCount; player++) {
+      const bEl = round.querySelector(`[data-field="bid-${player}"]`);
+      const aEl = round.querySelector(`[data-field="actual-${player}"]`);
+      if (bEl && aEl && bEl.value !== '' && aEl.value !== '') {
+        const bidNum = Number(bEl.value);
+        const actualNum = Number(aEl.value);
+        const score = scoreFor(bEl.value, aEl.value);
+        playerStats[player].totalBids += bidNum;
+        playerStats[player].totalActual += actualNum;
+        playerStats[player].points += score;
+        playerStats[player].totalRounds += 1;
+        if (bidNum === actualNum) {
+          playerStats[player].exactHits += 1;
+        }
+      }
+    }
+  });
+
+  playerStats.sort((a, b) => b.points - a.points);
+  const winner = playerStats[0];
+
+  document.getElementById('winner-announcement').textContent = winner && winner.points > 0 ? `🏆 Champion: ${winner.name}` : '🏆 Game Finished!';
+  document.getElementById('rounds-played-count').textContent = roundsCount;
+
+  const podiumContainer = document.getElementById('podium-cards');
+  const podiumStyles = [
+    { rank: '1st Place', icon: '🏆', class: 'gold' },
+    { rank: '2nd Place', icon: '🥈', class: 'silver' },
+    { rank: '3rd Place', icon: '🥉', class: 'bronze' }
+  ];
+
+  podiumContainer.innerHTML = playerStats.slice(0, 3).map((stat, idx) => `
+    <div class="col-md-4">
+      <div class="podium-card ${podiumStyles[idx].class}">
+        <span class="podium-badge">${podiumStyles[idx].icon}</span>
+        <span class="eyebrow small d-block mb-1">${podiumStyles[idx].rank}</span>
+        <div class="podium-title">${stat.name}</div>
+        <div class="podium-score mt-1">${stat.points}</div>
+        <span class="podium-sub">pts · ${stat.exactHits}/${stat.totalRounds} hits</span>
+      </div>
+    </div>
+  `).join('');
+
+  const leaderboardBody = document.getElementById('final-leaderboard-body');
+  leaderboardBody.innerHTML = playerStats.map((stat, idx) => {
+    const accuracy = stat.totalRounds > 0 ? Math.round((stat.exactHits / stat.totalRounds) * 100) : 0;
+    const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+    return `
+      <tr class="${idx === 0 ? 'table-warning fw-bold' : ''}">
+        <td><span class="fs-5">${medal}</span></td>
+        <td><strong>${stat.name}</strong></td>
+        <td><strong class="text-success fs-5">${stat.points}</strong></td>
+        <td>${stat.totalBids}</td>
+        <td>${stat.totalActual}</td>
+        <td><span class="badge bg-success">${stat.exactHits}</span> / ${stat.totalRounds}</td>
+        <td><strong>${accuracy}%</strong></td>
+      </tr>
+    `;
+  }).join('');
+
+  const emailBanner = document.getElementById('email-status-banner');
+  if (emailBanner) {
+    emailBanner.classList.remove('d-none');
+    emailBanner.className = 'alert alert-info border-info text-center my-3';
+    emailBanner.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Dispatching Winner & Loser HTML Emails...`;
+  }
+
+  const finishUrl = {% if game %}'/game/{{ game.id }}/finish/'{% else %}'/finish-game/'{% endif %};
+  fetch(finishUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken') || '',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({
+      players: playerStats.map(s => ({ name: s.name, score: s.points }))
+    })
+  }).then(res => res.json()).then(data => {
+    if (emailBanner) {
+      const wCount = data.email_results ? data.email_results.winners_sent : 0;
+      const lCount = data.email_results ? data.email_results.losers_sent : 0;
+      emailBanner.className = 'alert alert-success border-success text-center my-3 fw-bold';
+      emailBanner.innerHTML = `✉️ Emails Dispatched Successfully! 🏆 ${wCount} Winner(s) received Animated Victory Celebration Email. 👎 ${lCount} Loser(s) received "Better luck next time" message.`;
+    }
+  }).catch(() => {
+    if (emailBanner) {
+      emailBanner.className = 'alert alert-success border-success text-center my-3';
+      emailBanner.innerHTML = `✉️ Game Finished! Scorecard calculated & emails processed.`;
+    }
+  });
+
+  const scorecardModalElement = document.getElementById('final-scorecard-modal');
+  const scorecardModal = new bootstrap.Modal(scorecardModalElement);
+  scorecardModal.show();
 }
 
 document.getElementById('add-round').addEventListener('click', addRound);
-document.getElementById('reset-game').addEventListener('click', async () => { if (!await showAppConfirm('Reset all players, rounds, and scores?', 'Reset scoreboard', true)) return; rounds.innerHTML = ''; roundNumber = 0; playerNames.splice(0, playerNames.length, ...Array.from({length: playerCount}, (_, index) => `Player ${index + 1}`)); renderPlayers(); renderTotals(); emptyState.classList.remove('d-none'); });
+document.getElementById('add-player-btn').addEventListener('click', addPlayer);
+document.getElementById('remove-player-btn').addEventListener('click', removePlayer);
+document.getElementById('view-cumulative-matrix').addEventListener('click', () => showCumulativeScorecard());
+document.getElementById('finish-game').addEventListener('click', showFinalScorecard);
+document.getElementById('reset-game').addEventListener('click', async () => {
+  if (!await showAppConfirm('Reset all players, rounds, and scores?', 'Reset scoreboard', true)) return;
+  rounds.innerHTML = '';
+  roundNumber = 0;
+  playerNames = Array.from({length: 5}, (_, index) => `Player ${index + 1}`);
+  playerCount = playerNames.length;
+  deckCount = 1;
+  renderPlayers();
+  renderCalculatorBanner();
+  renderTotals();
+  emptyState.classList.remove('d-none');
+});
+
+const deckSelectEl = document.getElementById('scoreboard-deck-select');
+if (deckSelectEl) {
+  deckSelectEl.addEventListener('change', (e) => {
+    deckCount = Number(e.target.value || 1);
+    renderCalculatorBanner();
+    rebuildAllRounds();
+    renderTotals();
+  });
+}
+
+const quickSwitchBtn = document.getElementById('quick-switch-3decks-btn');
+if (quickSwitchBtn) {
+  quickSwitchBtn.addEventListener('click', () => {
+    deckCount = 3;
+    renderCalculatorBanner();
+    rebuildAllRounds();
+    renderTotals();
+  });
+}
+
 renderPlayers();
+renderCalculatorBanner();
 renderTotals();
 addRound();
+
+if ({% if is_finished %}true{% else %}false{% endif %} || new URLSearchParams(window.location.search).get('finished') === '1') {
+  setTimeout(() => showFinalScorecard(), 300);
+}
 </script>
 {% endblock %}

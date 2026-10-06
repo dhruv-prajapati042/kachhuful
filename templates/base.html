@@ -18,11 +18,43 @@
           <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active fw-bold{% endif %}" href="{% url 'dashboard' %}">Home</a></li>
           <li class="nav-item dropdown"><a class="nav-link dropdown-toggle {% if request.resolver_match.url_name == 'scoreboard' or request.resolver_match.url_name == 'game-scoreboard' or request.resolver_match.url_name == 'game-room' %}active fw-bold{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Game</a><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="{% url 'scoreboard' %}">Scoreboard</a></li>{% if game %}<li><a class="dropdown-item" href="{% url 'game-room' game.id %}">Current game room</a></li>{% endif %}<li><a class="dropdown-item" href="{% url 'dashboard' %}">Choose a table</a></li></ul></li>
           <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'rules' %}active fw-bold{% endif %}" href="{% url 'rules' %}">Rules</a></li>
+          <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'analytics' or request.resolver_match.url_name == 'user-analytics' %}active fw-bold{% endif %}" href="{% url 'analytics' %}">📊 Analytics</a></li>
+          <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'rewards' %}active fw-bold{% endif %}" href="{% url 'rewards' %}">🎁 Rewards</a></li>
+          {% if user.is_authenticated %}
+            <li class="nav-item ms-lg-2">
+              <a href="{% url 'rewards' %}" class="badge bg-warning-subtle text-dark border border-warning px-3 py-2 text-decoration-none fw-bold d-inline-flex align-items-center" title="View Rewards & Redeem">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="me-1">
+                  <circle cx="12" cy="12" r="10" fill="url(#coinGradNavbar)" stroke="#B45309" stroke-width="1.5"/>
+                  <circle cx="12" cy="12" r="7.5" fill="none" stroke="#FDE047" stroke-width="1" stroke-dasharray="2 1"/>
+                  <text x="12" y="15.5" font-size="11" font-weight="900" fill="#78350F" text-anchor="middle" font-family="Segoe UI, sans-serif">C</text>
+                  <defs>
+                    <linearGradient id="coinGradNavbar" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FDE047"/>
+                      <stop offset="0.5" stop-color="#F59E0B"/>
+                      <stop offset="1" stop-color="#D97706"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span>{{ user_reward.points|default:0 }} Points</span>
+              </a>
+            </li>
+            <li class="nav-item"><span class="badge bg-success-subtle text-success border px-3 py-2">👤 {{ user.first_name|default:user.username }}</span></li>
+            <li class="nav-item"><a class="btn btn-sm btn-outline-danger" href="{% url 'logout' %}">Logout</a></li>
+          {% else %}
+            <li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-success" href="{% url 'login' %}">Login</a></li>
+            <li class="nav-item"><a class="btn btn-sm btn-success fw-bold" href="{% url 'register' %}">Register</a></li>
+          {% endif %}
         </ul>
       </div>
     </div>
   </nav>
-  <main class="container py-5">{% if messages %}{% for message in messages %}<div class="alert alert-warning server-message" data-message="{{ message }}" role="alert">{{ message }}</div>{% endfor %}{% endif %}{% block content %}{% endblock %}</main>
+  <main class="container py-5">
+    {% if daily_bonus_info.claimed %}
+      <div class="alert alert-success border-success text-center py-2 mb-4 shadow-sm fw-bold">
+        🎉 Daily Login Streak Bonus Claimed! You earned <span class="badge bg-warning text-dark">+{{ daily_bonus_info.points_added }} Point{% if daily_bonus_info.points_added > 1 %}s{% endif %}</span> for Day {{ daily_bonus_info.streak_day }} Streak! 🪙
+      </div>
+    {% endif %}
+    {% if messages %}{% for message in messages %}<div class="alert alert-warning server-message" data-message="{{ message }}" role="alert">{{ message }}</div>{% endfor %}{% endif %}{% block content %}{% endblock %}</main>
   <div class="modal fade" id="app-modal" tabindex="-1" aria-labelledby="app-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
       <div class="modal-header"><h2 class="modal-title fs-5" id="app-modal-title">Kachhu Ful</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>

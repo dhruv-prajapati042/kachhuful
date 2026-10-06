@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-a4()es&m6x804p=ga#xz^s7nc7zx)=h3)gwao@ft@lzxubkn&o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -97,6 +97,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'game.context_processors.user_rewards_context',
             ],
         },
     },
@@ -169,11 +170,13 @@ CHANNEL_LAYERS = {
 }
 
 
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# Email configuration (Hostinger Email)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.hostinger.com'
+EMAIL_PORT = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'dhruvtt042@tesseracttechnolabs.com'
+EMAIL_HOST_PASSWORD = '042@dhruv#Tess'
+DEFAULT_FROM_EMAIL = 'dhruvtt042@tesseracttechnolabs.com'
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}

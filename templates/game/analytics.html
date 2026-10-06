@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="analytics-shell">
+  
+  <!-- Header & Player Selection -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <p class="eyebrow text-uppercase fw-bold text-success mb-1">📊 Kachhu Ful Career Insights</p>
+      <h1 class="display-6 fw-bold mb-1">Player Analytics: <span class="text-success">{{ target_name }}</span></h1>
+      <p class="text-secondary mb-0">Track lifetime win rates, exact bid accuracy %, and game history.</p>
+    </div>
+
+    <!-- Quick Player Search / Switcher -->
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <form class="d-flex gap-2" method="GET" action="{% url 'analytics' %}">
+        <div class="input-group">
+          <input type="text" name="query" class="form-control form-control-sm" placeholder="Search player name..." value="{{ target_name }}" style="min-width: 180px;">
+          <button class="btn btn-sm btn-success fw-bold" type="submit">🔍 View Stats</button>
+        </div>
+      </form>
+      {% if registered_users %}
+        <select class="form-select form-select-sm border-success text-success fw-bold" style="min-width: 160px;" onchange="if(this.value) window.location.href='/analytics/' + encodeURIComponent(this.value) + '/'">
+          <option value="" disabled selected>👤 Select Registered User</option>
+          {% for u in registered_users %}
+            <option value="{{ u.first_name|default:u.username }}">👤 {{ u.first_name|default:u.username }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Key Performance Indicators (KPI Grid) -->
+  <div class="row g-3 mb-4">
+    <!-- Stat 1: Games Won & Win Rate -->
+    <div class="col-sm-6 col-lg-3">
+      <div class="surface p-4 border-start border-4 border-warning shadow-sm h-100 bg-white">
+        <span class="eyebrow small text-warning fw-bold text-uppercase d-block mb-1">🏆 Win Rate & Victories</span>
+        <div class="d-flex align-items-baseline gap-2">
+          <span class="display-5 fw-bold text-dark">{{ win_rate }}%</span>
+          <span class="badge bg-warning text-dark fs-6">{{ games_won }} Wins</span>
+        </div>
+        <div class="progress mt-3" style="height: 8px;">
+          <div class="progress-bar bg-warning" role="progressbar" style="width: {{ win_rate }}%;" aria-valuenow="{{ win_rate }}" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <small class="text-secondary d-block mt-2">Out of {{ total_games }} table match{% if total_games != 1 %}es{% endif %} played</small>
+      </div>
+    </div>
+
+    <!-- Stat 2: Bid Accuracy -->
+    <div class="col-sm-6 col-lg-3">
+      <div class="surface p-4 border-start border-4 border-success shadow-sm h-100 bg-white">
+        <span class="eyebrow small text-success fw-bold text-uppercase d-block mb-1">🎯 Bid Accuracy Rate</span>
+        <div class="d-flex align-items-baseline gap-2">
+          <span class="display-5 fw-bold text-dark">{{ bid_accuracy }}%</span>
+          <span class="badge bg-success fs-6">{{ exact_hits }}/{{ total_bids }} Hits</span>
+        </div>
+        <div class="progress mt-3" style="height: 8px;">
+          <div class="progress-bar bg-success" role="progressbar" style="width: {{ bid_accuracy }}%;" aria-valuenow="{{ bid_accuracy }}" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <small class="text-secondary d-block mt-2">Exact bids matched successfully</small>
+      </div>
+    </div>
+
+    <!-- Stat 3: Total Points & Avg -->
+    <div class="col-sm-6 col-lg-3">
+      <div class="surface p-4 border-start border-4 border-primary shadow-sm h-100 bg-white">
+        <span class="eyebrow small text-primary fw-bold text-uppercase d-block mb-1">⚡ Total Career Points</span>
+        <div class="d-flex align-items-baseline gap-2">
+          <span class="display-5 fw-bold text-primary">{{ total_points }}</span>
+          <span class="small text-secondary fw-bold">pts</span>
+        </div>
+        <div class="mt-3 pt-1 border-top">
+          <small class="text-secondary">Average per match: <strong class="text-dark">{{ avg_score }} pts</strong></small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat 4: Highest Single-Game Score -->
+    <div class="col-sm-6 col-lg-3">
+      <div class="surface p-4 border-start border-4 border-danger shadow-sm h-100 bg-white">
+        <span class="eyebrow small text-danger fw-bold text-uppercase d-block mb-1">🔥 Personal Record</span>
+        <div class="d-flex align-items-baseline gap-2">
+          <span class="display-5 fw-bold text-dark">{{ highest_score }}</span>
+          <span class="badge bg-danger fs-6">Best Score</span>
+        </div>
+        <div class="mt-3 pt-1 border-top">
+          <small class="text-secondary">Highest single-match point total</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Match History Table Section -->
+  <section class="surface p-4 border-0 shadow-sm bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h4 fw-bold mb-0">📜 Match History & Table Performance</h2>
+        <p class="text-secondary small mb-0">Detailed breakdown of recent games played by {{ target_name }}</p>
+      </div>
+      <span class="badge bg-secondary fs-6">{{ match_history|length }} Matches Recorded</span>
+    </div>
+
+    {% if match_history %}
+      <div class="table-responsive">
+        <table class="table align-middle table-hover score-table border">
+          <thead class="table-dark">
+            <tr>
+              <th>Date / Time</th>
+              <th>Table Name</th>
+              <th>Final Position</th>
+              <th>Total Points</th>
+              <th>Exact Bids Hit</th>
+              <th>Bid Accuracy</th>
+              <th>Game Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in match_history %}
+              <tr class="{% if m.is_winner %}table-warning fw-bold{% endif %}">
+                <td><small class="text-secondary">{{ m.created_at|date:"M d, Y · H:i" }}</small></td>
+                <td>
+                  <strong>{{ m.game_name }}</strong>
+                  <div class="small text-secondary">{{ m.total_players }} players</div>
+                </td>
+                <td>
+                  {% if m.rank == 1 %}
+                    <span class="badge bg-warning text-dark fs-6 px-3 py-1">🏆 1st Champion</span>
+                  {% elif m.rank == 2 %}
+                    <span class="badge bg-secondary fs-6 px-3 py-1">🥈 2nd Place</span>
+                  {% elif m.rank == 3 %}
+                    <span class="badge bg-secondary-subtle text-dark border fs-6 px-3 py-1">🥉 3rd Place</span>
+                  {% else %}
+                    <span class="badge bg-light text-dark border">#{{ m.rank }} of {{ m.total_players }}</span>
+                  {% endif %}
+                </td>
+                <td><strong class="fs-5 {% if m.is_winner %}text-success{% else %}text-dark{% endif %}">{{ m.score }} pts</strong></td>
+                <td>
+                  <span class="badge bg-success">{{ m.exact_hits }}</span> / {{ m.total_bids }}
+                </td>
+                <td>
+                  <strong>{{ m.accuracy }}%</strong>
+                </td>
+                <td>
+                  {% if m.status == 'FINISHED' %}
+                    <span class="badge bg-success-subtle text-success border">FINISHED</span>
+                  {% else %}
+                    <span class="badge bg-info-subtle text-info border">{{ m.status }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'game-scoreboard' m.game_id %}" class="btn btn-sm btn-outline-primary py-0">📊 Scorecard</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-5 text-center bg-light rounded border">
+        <p class="fs-4 text-secondary mb-2">No match records found for <strong>{{ target_name }}</strong>.</p>
+        <p class="text-secondary small mb-3">Play a game or log scores on the scoreboard to record analytics.</p>
+        <a href="{% url 'scoreboard' %}" class="btn btn-success fw-bold">➕ Go to Scoreboard</a>
+      </div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

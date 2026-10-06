@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div style="max-width: 850px; margin: 20px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #e1e8ed;">
+  <div style="border-bottom: 2px solid #28a745; padding-bottom: 15px; margin-bottom: 20px;">
+    <span style="background: #28a745; color: #fff; font-size: 11px; font-weight: bold; text-transform: uppercase; padding: 4px 8px; border-radius: 4px;">Admin Tool</span>
+    <h1 style="margin: 8px 0 4px; font-size: 24px; color: #212529;">⚡ Bulk Add Regular Users (Non-Admin Role)</h1>
+    <p style="color: #6c757d; margin: 0; font-size: 14px;">Enter multiple user names & emails to register them at once. All created users will be regular players (<code>is_staff=False</code>, <code>is_superuser=False</code>).</p>
+  </div>
+
+  <form method="post" action="">
+    {% csrf_token %}
+    
+    <div style="margin-bottom: 20px;">
+      <label style="font-weight: bold; display: block; margin-bottom: 6px; color: #333;" for="def-pass">Default Password for Created Users:</label>
+      <input type="text" id="def-pass" name="default_password" value="Kachuful@123" required style="width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ced4da; border-radius: 4px;">
+      <small style="color: #6c757d; display: block; margin-top: 4px;">Users can log in using their email address and this password.</small>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <label style="font-weight: bold; display: block; margin-bottom: 6px; color: #333;" for="user-data">Enter Users List (One user per line: <code>Name, Email</code>):</label>
+      <div style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 12px; border-radius: 4px; font-size: 13px; color: #495057; margin-bottom: 10px;">
+        <strong>Example Format:</strong><br>
+        <code>Ayush, ayush@example.com</code><br>
+        <code>Matre, matre@example.com</code><br>
+        <code>Manavare, manavare@example.com</code><br>
+        <code>Jayes, jayes@example.com</code><br>
+        <code>Nimesh, nimesh@example.com</code>
+      </div>
+      <textarea id="user-data" name="user_data" rows="12" placeholder="Name, Email&#10;Ayush, ayush@example.com&#10;Matre, matre@example.com" required style="width: 100%; padding: 12px; font-family: monospace; font-size: 14px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;"></textarea>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button type="submit" style="background: #28a745; color: #fff; border: none; padding: 12px 24px; font-size: 15px; font-weight: bold; border-radius: 4px; cursor: pointer;">➕ Create Non-Admin Users</button>
+      <a href="/admin/auth/user/" style="background: #6c757d; color: #fff; text-decoration: none; padding: 12px 20px; font-size: 15px; font-weight: bold; border-radius: 4px; display: inline-block;">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

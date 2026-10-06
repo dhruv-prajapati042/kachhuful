@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center py-4">
+  <div class="col-md-6 col-lg-5">
+    <div class="surface p-4 shadow-sm border-0 rounded-3">
+      <div class="text-center mb-4">
+        <span class="badge bg-primary text-white font-monospace text-uppercase mb-2 px-3 py-1">User Login</span>
+        <h1 class="h3 fw-bold mb-1">Welcome Back</h1>
+        <p class="text-secondary small mb-0">Log in with your registered Email to play at game tables</p>
+      </div>
+
+      <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label small fw-bold" for="login-email">Email Address</label>
+          <input class="form-control" id="login-email" name="email" type="email" placeholder="e.g. dhruv@example.com" required autofocus>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label small fw-bold" for="login-password">Password</label>
+          <input class="form-control" id="login-password" name="password" type="password" placeholder="Enter password" required>
+        </div>
+
+        <button class="btn btn-primary w-100 fw-bold py-2" type="submit">🔑 Log In</button>
+      </form>
+
+      <div class="text-center mt-4 pt-3 border-top">
+        <span class="text-secondary small">Don't have an account yet?</span>
+        <a href="{% url 'register' %}" class="fw-bold text-success text-decoration-none ms-1">Register now</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

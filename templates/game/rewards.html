@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="rewards-shell">
+
+  <!-- Header Banner -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <p class="eyebrow text-uppercase fw-bold text-success mb-1">🪙 Kachhuful Points & Loyalty Rewards</p>
+      <h1 class="display-6 fw-bold mb-1">Rewards Center</h1>
+      <p class="text-secondary mb-0">Earn points on every game victory & daily login streak. Redeem 100 points for prizes!</p>
+    </div>
+    {% if user.is_authenticated %}
+      <div class="d-flex align-items-center gap-2 bg-success-subtle text-success border border-success px-4 py-2 rounded-pill shadow-sm">
+        <div>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="url(#coinGradRewardHeader)" stroke="#B45309" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="7.5" fill="none" stroke="#FDE047" stroke-width="1" stroke-dasharray="2 1"/>
+            <text x="12" y="16" font-size="12" font-weight="900" fill="#78350F" text-anchor="middle" font-family="Segoe UI, sans-serif">C</text>
+            <defs>
+              <linearGradient id="coinGradRewardHeader" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FDE047"/>
+                <stop offset="0.5" stop-color="#F59E0B"/>
+                <stop offset="1" stop-color="#D97706"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <span class="small text-uppercase fw-bold d-block text-secondary" style="line-height: 1;">Current Balance</span>
+          <strong class="fs-4 text-success">{{ user_reward.points|default:0 }} Points</strong>
+        </div>
+      </div>
+    {% else %}
+      <a href="{% url 'login' %}" class="btn btn-success fw-bold">🔑 Login to Start Earning Points</a>
+    {% endif %}
+  </div>
+
+  <!-- Points & Redemption Progress Card -->
+  <section class="surface p-4 border-0 shadow-sm bg-white mb-4">
+    <div class="row align-items-center g-4">
+      <div class="col-md-7">
+        <span class="badge bg-warning text-dark font-monospace text-uppercase mb-2">🎁 Redemption Threshold</span>
+        <h2 class="h3 fw-bold mb-2">Redeem 100 Points for Reward Vouchers</h2>
+        <p class="text-secondary mb-3">Reach 100 points to claim an exclusive ₹500 Reward Voucher. Points are deducted upon redemption.</p>
+        
+        <!-- Progress Bar to 100 Points -->
+        {% if user.is_authenticated %}
+          <div class="mb-2 d-flex justify-content-between small fw-bold">
+            <span>Progress: {{ user_reward.points|default:0 }} / 100 Points</span>
+            <span class="text-success">{% if user_reward.points >= 100 %}🎉 READY TO REDEEM!{% else %}{{ 100|add:"-1" }}{% endif %}</span>
+          </div>
+          <div class="progress mb-3" style="height: 12px;">
+            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" 
+                 style="width: {% if user_reward.points >= 100 %}100{% else %}{{ user_reward.points|default:0 }}{% endif %}%;"></div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-5 text-center text-md-end">
+        {% if user.is_authenticated %}
+          {% if user_reward.points >= 100 %}
+            <button class="btn btn-lg btn-success fw-bold px-4 py-3 shadow" id="redeem-btn" type="button">
+              🎁 REDEEM 100 POINTS NOW
+            </button>
+          {% else %}
+            <button class="btn btn-lg btn-secondary fw-bold px-4 py-3" disabled type="button">
+              🔒 100 Points Needed to Redeem
+            </button>
+            <small class="d-block text-muted mt-2">Earn points by winning games & logging in daily!</small>
+          {% endif %}
+        {% else %}
+          <a href="{% url 'login' %}" class="btn btn-lg btn-success fw-bold px-4 py-3">Login to Redeem</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Alert status for JS redemption result -->
+    <div class="alert d-none mt-3 mb-0 text-center fw-bold" id="redemption-alert"></div>
+  </section>
+
+  <!-- 7-Day Daily Login Streak Section -->
+  <section class="surface p-4 border-0 shadow-sm bg-white mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h4 fw-bold mb-0">📅 7-Day Daily Login Streak Bonus</h2>
+        <p class="text-secondary small mb-0">Log in every day to increase your daily streak bonus. Resets every 7 days!</p>
+      </div>
+      {% if user.is_authenticated %}
+        <span class="badge bg-primary fs-6 px-3 py-2">Current Streak: Day {{ user_reward.streak_days|default:0 }}</span>
+      {% endif %}
+    </div>
+
+    <div class="row g-2 text-center mt-1">
+      {% for item in streak_days_list %}
+        <div class="col-6 col-sm-4 col-md">
+          <div class="p-3 border rounded h-100 
+               {% if user.is_authenticated and user_reward.streak_days == item.day %}
+                 bg-success text-white shadow border-success fw-bold scale-up
+               {% else %}
+                 bg-light text-dark
+               {% endif %}">
+            <div class="mb-1">
+              {% if item.day == 7 %}
+                <span class="fs-2">🎁</span>
+              {% else %}
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="d-inline-block">
+                  <circle cx="12" cy="12" r="10" fill="url(#coinGradStreak)" stroke="#B45309" stroke-width="1.5"/>
+                  <circle cx="12" cy="12" r="7.5" fill="none" stroke="#FDE047" stroke-width="1" stroke-dasharray="2 1"/>
+                  <text x="12" y="16" font-size="12" font-weight="900" fill="#78350F" text-anchor="middle" font-family="Segoe UI, sans-serif">C</text>
+                  <defs>
+                    <linearGradient id="coinGradStreak" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FDE047"/>
+                      <stop offset="0.5" stop-color="#F59E0B"/>
+                      <stop offset="1" stop-color="#D97706"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              {% endif %}
+            </div>
+            <strong class="fs-5">+{{ item.pts }} Pt{% if item.pts > 1 %}s{% endif %}</strong>
+            {% if user.is_authenticated and user_reward.streak_days == item.day %}
+              <span class="badge bg-white text-success d-block mt-2">ACTIVE TODAY</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- How to Earn Points Rule Guide -->
+  <section class="surface p-4 border-0 shadow-sm bg-white">
+    <h2 class="h4 fw-bold mb-3">💡 How to Earn Kachhuful Points</h2>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="p-3 border rounded bg-light h-100">
+          <div class="fs-1 text-warning mb-2">🏆</div>
+          <h3 class="h5 fw-bold text-dark">1st Place Champion</h3>
+          <p class="text-secondary small mb-0">Finish 1st place in any game table to earn <strong class="text-success fs-5">+10 Points</strong> automatically.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 border rounded bg-light h-100">
+          <div class="fs-1 text-secondary mb-2">🥈</div>
+          <h3 class="h5 fw-bold text-dark">2nd Place Runner-up</h3>
+          <p class="text-secondary small mb-0">Finish 2nd place in any game table to earn <strong class="text-success fs-5">+5 Points</strong>.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 border rounded bg-light h-100">
+          <div class="fs-1 text-primary mb-2">🥉</div>
+          <h3 class="h5 fw-bold text-dark">3rd Place (6+ Players)</h3>
+          <p class="text-secondary small mb-0">Finish 3rd place in larger tables (6+ players) to earn <strong class="text-success fs-5">+3 Points</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+const redeemBtn = document.getElementById('redeem-btn');
+const alertBox = document.getElementById('redemption-alert');
+
+if (redeemBtn) {
+  redeemBtn.addEventListener('click', async () => {
+    if (!await showAppConfirm('Redeem 100 points for a ₹500 Reward Voucher?', 'Confirm Redemption')) return;
+    
+    fetch("{% url 'redeem-points' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken') || ''
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      alertBox.classList.remove('d-none');
+      if (data.status === 'success') {
+        alertBox.className = 'alert alert-success border-success text-center my-3 fw-bold';
+        alertBox.innerHTML = `${data.message}`;
+        setTimeout(() => window.location.reload(), 3000);
+      } else {
+        alertBox.className = 'alert alert-danger border-danger text-center my-3 fw-bold';
+        alertBox.innerHTML = `⚠️ ${data.message}`;
+      }
+    })
+    .catch(err => {
+      alertBox.classList.remove('d-none');
+      alertBox.className = 'alert alert-danger text-center my-3';
+      alertBox.innerHTML = '⚠️ Error completing redemption. Please try again.';
+    });
+  });
+}
+</script>
+{% endblock %}

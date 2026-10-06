@@ -19,6 +19,7 @@ class Game(models.Model):
 	status = models.CharField(max_length=20, choices=Status.choices, default=Status.WAITING)
 	dealer_restriction = models.BooleanField(default=True)
 	round_mode = models.CharField(max_length=20, default='UP_DOWN')
+	deck_count = models.PositiveSmallIntegerField(default=1)
 	current_round = models.PositiveIntegerField(default=0)
 	created_at = models.DateTimeField(auto_now_add=True)
 
@@ -29,12 +30,14 @@ class Game(models.Model):
 class Player(models.Model):
 	game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='players')
 	name = models.CharField(max_length=80)
+	email = models.EmailField(max_length=120, blank=True, default='')
 	seat = models.PositiveSmallIntegerField()
 	score = models.IntegerField(default=0)
 	tricks_won = models.PositiveSmallIntegerField(default=0)
 	is_dealer = models.BooleanField(default=False)
 
 	class Meta:
+		
 		ordering = ['seat']
 		constraints = [models.UniqueConstraint(fields=['game', 'seat'], name='unique_game_seat')]
 
@@ -125,3 +128,18 @@ class PlayedCard(models.Model):
 
 	def __str__(self):
 		return f'{self.player.name} played {self.card}'
+
+
+from django.contrib.auth.models import User
+
+
+class UserReward(models.Model):
+	user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='reward')
+	points = models.PositiveIntegerField(default=0)
+	streak_days = models.PositiveSmallIntegerField(default=0)
+	last_login_date = models.DateField(null=True, blank=True)
+	total_points_earned = models.PositiveIntegerField(default=0)
+	total_points_redeemed = models.PositiveIntegerField(default=0)
+
+	def __str__(self):
+		return f'{self.user.username} - {self.points} Points (Day {self.streak_days} Streak)'

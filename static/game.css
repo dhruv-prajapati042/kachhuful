@@ -40,3 +40,124 @@ h1,h2,.navbar-brand { font-family:'Fraunces',serif; }
 .empty-state { color:#6b7972; padding:24px; text-align:center; }
 .btn-success { background:var(--ink); border-color:var(--ink); }
 .btn-success:hover { background:#2c594b; border-color:#2c594b; }
+
+/* Final Scorecard & Podium Styles */
+.podium-card { background: linear-gradient(135deg, #ffffff 0%, var(--mint) 100%); border: 2px solid #c5df65; border-radius: 12px; padding: 18px 12px; text-align: center; box-shadow: 0 10px 25px rgba(25,53,45,.08); }
+.podium-card.gold { border-color: #ffc107; background: linear-gradient(135deg, #fffdf0 0%, #fff6cc 100%); }
+.podium-card.silver { border-color: #a0aab2; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); }
+.podium-card.bronze { border-color: #d97706; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+.podium-badge { font-size: 2rem; display: block; line-height: 1; margin-bottom: 4px; }
+/* Mobile Responsive Adjustments */
+@media (max-width: 767.98px) {
+  body { font-size: 0.92rem; }
+  .container { padding-left: 10px; padding-right: 10px; }
+
+  /* Header & Action buttons on mobile */
+  .scoreboard-shell .d-flex.justify-content-between {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .scoreboard-shell .d-flex.gap-2 {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  .scoreboard-shell .d-flex.gap-2 .btn {
+    width: 100%;
+    margin-bottom: 4px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+  }
+
+  /* Player inputs & Score tiles grid */
+  #player-fields .col-sm-6 {
+    width: 50%;
+  }
+  #totals .col-6 {
+    width: 50%;
+    padding: 4px;
+  }
+  .score-tile {
+    min-height: 76px;
+    padding: 10px;
+  }
+  .score-tile strong {
+    font-size: 1.6rem;
+  }
+
+  /* Round section card & header */
+  .round-card {
+    padding: 14px !important;
+  }
+  .round-card .section-heading {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .round-card .section-heading > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  /* Score Table horizontal scrolling on mobile */
+  .table-responsive {
+    border-radius: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .score-table {
+    min-width: 440px !important;
+  }
+  .score-table th, .score-table td {
+    padding: 8px 4px !important;
+    font-size: 0.85rem;
+    vertical-align: middle;
+  }
+  .score-table input {
+    width: 76px !important;
+    min-width: 64px !important;
+    max-width: 80px !important;
+    font-size: 1rem !important;
+    padding: 6px 4px !important;
+    text-align: center;
+    height: 38px;
+    margin: 0 auto;
+  }
+
+  /* Round action buttons on mobile */
+  .round-card .border-top {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .round-card .border-top .d-flex {
+    flex-direction: column;
+    width: 100%;
+    gap: 6px !important;
+  }
+  .round-card .border-top .btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.9rem;
+    white-space: normal;
+  }
+
+  /* Modals on mobile */
+  .modal-dialog {
+    margin: 6px;
+  }
+  .modal-body {
+    padding: 12px !important;
+  }
+  .podium-card {
+    padding: 10px 6px;
+    margin-bottom: 6px;
+  }
+}
+
+
+

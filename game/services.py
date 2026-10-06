@@ -1,6 +1,10 @@
+import logging
 import random
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 from .models import Bid, Card, PlayedCard, Round, SUITS, TRUMP_SEQUENCE, RANK_VALUES, Trick
 
@@ -11,26 +15,66 @@ def score_for_bid(bid, actual):
     return (bid + 1) * 10 + bid
 
 
-def cards_for_round(player_count, round_number, mode='UP_DOWN'):
-    maximum = max(1, 52 // player_count)
+def cards_for_round(player_count, round_number, mode='UP_DOWN', deck_count=1):
+    player_count = max(2, player_count)
+    d_count = max(1, deck_count)
+    total_deck_cards = 52 * d_count
+    maximum = max(1, total_deck_cards // player_count)
     if mode == 'UP_DOWN':
         cycle = list(range(1, maximum + 1)) + list(range(maximum - 1, 0, -1))
         return cycle[(round_number - 1) % len(cycle)]
     return min(round_number, maximum)
 
 
+def get_round_trick_stats(player_count, round_number, mode='UP_DOWN', deck_count=1):
+    p_count = max(2, player_count)
+    d_count = max(1, deck_count)
+    total_deck_cards = 52 * d_count
+    cards_per_player = cards_for_round(p_count, round_number, mode, d_count)
+    max_hand = max(1, total_deck_cards // p_count)
+    total_played = cards_per_player * p_count
+    undealt = total_deck_cards - total_played
+    return {
+        'player_count': p_count,
+        'deck_count': d_count,
+        'total_deck_cards': total_deck_cards,
+        'round_number': round_number,
+        'cards_per_player': cards_per_player,
+        'max_tricks': cards_per_player,
+        'max_hand': max_hand,
+        'total_cards_played': total_played,
+        'undealt_cards': undealt,
+    }
+
+
+TRUMP_INFO = {
+    'SPADES': {'code': 'Ka', 'name': 'Kali', 'symbol': '♠', 'gujarati': 'કાળી', 'display': 'Ka (Kali · ♠ Spades)'},
+    'DIAMONDS': {'code': 'Chu', 'name': 'Charkat', 'symbol': '♦', 'gujarati': 'ચોકટ', 'display': 'Chu (Charkat · ♦ Diamonds)'},
+    'CLUBS': {'code': 'Fu', 'name': 'Falli', 'symbol': '♣', 'gujarati': 'ફુલ્લી', 'display': 'Fu (Falli · ♣ Clubs)'},
+    'HEARTS': {'code': 'L', 'name': 'Lal', 'symbol': '♥', 'gujarati': 'લાલ', 'display': 'L (Lal · ♥ Hearts)'},
+}
+
+
 def trump_for_round(round_number):
     return TRUMP_SEQUENCE[(round_number - 1) % len(TRUMP_SEQUENCE)]
+
+
+def trump_info_for_round(round_number):
+    suit = trump_for_round(round_number)
+    info = TRUMP_INFO[suit].copy()
+    info['suit'] = suit
+    return info
 
 
 @transaction.atomic
 def deal_round(game, number):
     players = list(game.players.all())
-    if not 3 <= len(players) <= 8:
-        raise ValidationError('A game needs between 3 and 8 players.')
-    amount = cards_for_round(len(players), number, game.round_mode)
+    if len(players) < 2:
+        raise ValidationError('A game needs at least 2 players.')
+    amount = cards_for_round(len(players), number, game.round_mode, game.deck_count)
     round_obj = Round.objects.create(game=game, number=number, cards_per_player=amount, trump_suit=trump_for_round(number), status=Round.Status.BIDDING)
-    deck = [(suit, rank) for suit, _ in SUITS for rank in RANK_VALUES]
+    single_deck = [(suit, rank) for suit, _ in SUITS for rank in RANK_VALUES]
+    deck = single_deck * max(1, game.deck_count)
     random.shuffle(deck)
     for index, player in enumerate(players):
         for suit, rank in deck[index * amount:(index + 1) * amount]:
@@ -113,3 +157,163 @@ def play_card(round_obj, player, card_id):
             round_obj.current_player = winner
             round_obj.save(update_fields=['current_player'])
     return card
+
+
+import string
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.contrib.auth.models import User
+
+
+def generate_zomato_coupon():
+    random_digits = ''.join(random.choices(string.digits, k=6))
+    return f"ZOMATO-WIN-{random_digits}"
+
+
+def award_game_finish_points(player_list):
+    """
+    Awards Kachhuful Reward Points to players based on final standings:
+    - 1st Place: +10 Points
+    - 2nd Place: +5 Points
+    - 3rd Place (if total players > 5): +3 Points
+    """
+    valid_players = [p for p in player_list if p.get('name')]
+    if not valid_players:
+        return
+
+    sorted_players = sorted(valid_players, key=lambda x: int(x.get('score', 0)), reverse=True)
+    player_count = len(sorted_players)
+    if player_count < 1:
+        return
+
+    unique_scores = sorted(list(set(int(p.get('score', 0)) for p in sorted_players)), reverse=True)
+    rank1_score = unique_scores[0] if len(unique_scores) > 0 else None
+    rank2_score = unique_scores[1] if len(unique_scores) > 1 else None
+    rank3_score = unique_scores[2] if len(unique_scores) > 2 else None
+
+    from .models import UserReward
+    for p in valid_players:
+        name = p.get('name')
+        if not name:
+            continue
+
+        score = int(p.get('score', 0))
+        pts_to_award = 0
+
+        if score == rank1_score and score > 0:
+            pts_to_award = 10
+        elif score == rank2_score:
+            pts_to_award = 5
+        elif player_count > 5 and score == rank3_score:
+            pts_to_award = 3
+
+        if pts_to_award > 0:
+            user_match = User.objects.filter(first_name__iexact=name).first() or User.objects.filter(username__iexact=name).first()
+            if not user_match and p.get('email'):
+                user_match = User.objects.filter(email__iexact=p.get('email')).first()
+
+            if user_match:
+                reward, _ = UserReward.objects.get_or_create(user=user_match)
+                reward.points += pts_to_award
+                reward.total_points_earned += pts_to_award
+                reward.save()
+
+
+def send_game_finished_emails(game_name, player_list):
+    """
+    player_list: list of dicts: [{'name': '...', 'email': '...', 'score': 100}, ...]
+    Identifies ALL winners (highest score, handles ties) and ALL losers (lowest score, handles ties).
+    Sends Champion Victory email to Winners, and Better Luck Next Time email to Losers.
+    Also awards Kachhuful Reward Points (+10 for 1st, +5 for 2nd, +3 for 3rd if >5 players).
+    """
+    award_game_finish_points(player_list)
+    valid_players = [p for p in player_list if p.get('name')]
+    if not valid_players:
+        return {'winners_sent': 0, 'losers_sent': 0}
+
+    scores = [int(p.get('score', 0)) for p in valid_players]
+    max_score = max(scores)
+    min_score = min(scores)
+
+    # Ties handling: Everyone with score == max_score is a WINNER!
+    winners = [p for p in valid_players if int(p.get('score', 0)) == max_score]
+
+    # Ties handling: Everyone with score == min_score (where min_score < max_score) is a LOSER!
+    losers = [p for p in valid_players if int(p.get('score', 0)) == min_score and min_score < max_score]
+
+    winners_sent = 0
+    losers_sent = 0
+
+    # 1. Send Winner Emails
+    for winner in winners:
+        name = winner.get('name')
+        email = winner.get('email', '').strip()
+
+        if not email:
+            user_match = User.objects.filter(first_name__iexact=name).first() or User.objects.filter(username__iexact=name).first()
+            if user_match and user_match.email:
+                email = user_match.email
+
+        if email:
+            html_content = render_to_string('emails/winner_email.html', {
+                'player_name': name,
+                'player_email': email,
+                'player_score': winner.get('score', max_score),
+                'game_name': game_name,
+            })
+            text_content = f"CONGRATULATIONS {name}! You WON 1st Place at {game_name} with {winner.get('score', max_score)} points! You are the Kachhu Ful Champion!"
+
+            msg = EmailMultiAlternatives(
+                subject=f"🏆 YOU WON! 🥇 Champion Victory at {game_name}",
+                body=text_content,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'dhruvtt042@tesseracttechnolabs.com'),
+                to=[email]
+            )
+            msg.attach_alternative(html_content, "text/html")
+            try:
+                msg.send(fail_silently=False)
+                winners_sent += 1
+            except Exception as e:
+                logger.error("Error sending winner email to %s: %s", email, str(e).encode('ascii', 'ignore').decode('ascii'))
+
+    # 2. Send Loser Emails
+    for loser in losers:
+        name = loser.get('name')
+        email = loser.get('email', '').strip()
+
+        if not email:
+            user_match = User.objects.filter(first_name__iexact=name).first() or User.objects.filter(username__iexact=name).first()
+            if user_match and user_match.email:
+                email = user_match.email
+
+        if email:
+            html_content = render_to_string('emails/loser_email.html', {
+                'player_name': name,
+                'player_email': email,
+                'player_score': loser.get('score', min_score),
+                'game_name': game_name,
+            })
+            text_content = f"Hi {name}, better luck next time! You played hard at {game_name} with {loser.get('score', min_score)} pts. Keep practicing your bids!"
+
+            msg = EmailMultiAlternatives(
+                subject=f"👎 Better Luck Next Time, {name}! - Kachhu Ful",
+                body=text_content,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'dhruvtt042@tesseracttechnolabs.com'),
+                to=[email]
+            )
+            msg.attach_alternative(html_content, "text/html")
+            try:
+                msg.send(fail_silently=False)
+                losers_sent += 1
+            except Exception as e:
+                logger.error("Error sending loser email to %s: %s", email, str(e).encode('ascii', 'ignore').decode('ascii'))
+
+    return {
+        'winners_sent': winners_sent,
+        'losers_sent': losers_sent,
+        'max_score': max_score,
+        'min_score': min_score,
+        'winners_count': len(winners),
+        'losers_count': len(losers),
+    }
+

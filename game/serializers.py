@@ -6,7 +6,7 @@ from .models import Bid, Card, Game, Player, Round
 class PlayerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Player
-        fields = ['id', 'name', 'seat', 'score', 'tricks_won', 'is_dealer']
+        fields = ['id', 'name', 'email', 'seat', 'score', 'tricks_won', 'is_dealer']
 
 
 class CardSerializer(serializers.ModelSerializer):
@@ -27,13 +27,13 @@ class GameSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Game
-        fields = ['id', 'name', 'status', 'dealer_restriction', 'round_mode', 'current_round', 'players', 'rounds']
+        fields = ['id', 'name', 'status', 'dealer_restriction', 'round_mode', 'deck_count', 'current_round', 'players', 'rounds']
 
 
 class GameWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Game
-        fields = ['id', 'name', 'status', 'dealer_restriction', 'round_mode', 'current_round']
+        fields = ['id', 'name', 'status', 'dealer_restriction', 'round_mode', 'deck_count', 'current_round']
 
 
 class BidSerializer(serializers.ModelSerializer):
