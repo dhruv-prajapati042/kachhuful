@@ -176,7 +176,7 @@ EMAIL_HOST = 'smtp.hostinger.com'
 EMAIL_PORT = 465
 EMAIL_USE_TLS = False
 EMAIL_USE_SSL = True
-EMAIL_HOST_USER = 'dhruvtt042@tesseracttechnolabs.com'
-EMAIL_HOST_PASSWORD = '042@dhruv#Tess'
+EMAIL_HOST_USER = 'youremail'
+EMAIL_HOST_PASSWORD = 'yourpass'
 DEFAULT_FROM_EMAIL = 'dhruvtt042@tesseracttechnolabs.com'
 
