@@ -9,9 +9,9 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Game, Player, Round, Bid, Trick
+from .models import Game, Player, Round, Bid, Trick, UserReward, RewardRedemption
 from .serializers import CardActionSerializer, GameSerializer, GameWriteSerializer
-from .services import deal_round, get_round_trick_stats, play_card, submit_bid, send_game_finished_emails
+from .services import deal_round, get_round_trick_stats, play_card, submit_bid, send_game_finished_emails, save_game_rounds_and_scores
 
 
 def dashboard(request):
@@ -23,13 +23,33 @@ def rules(request):
 
 
 def scoreboard(request, game_id=None):
-	game = Game.objects.prefetch_related('players', 'rounds').filter(id=game_id).first() if game_id else None
+	game = Game.objects.prefetch_related('players', 'rounds__bids__player').filter(id=game_id).first() if game_id else None
 	player_names = list(game.players.values_list('name', flat=True)) if game else []
 	player_count = len(player_names) or 5
 	deck_count = game.deck_count if game else 1
 	max_cards = max(1, (52 * deck_count) // player_count)
 	is_finished = (game.status == Game.Status.FINISHED) if game else False
 	registered_users = list(User.objects.values('id', 'username', 'first_name', 'email'))
+
+	saved_rounds_data = []
+	if game:
+		for r in game.rounds.order_by('number'):
+			bids_data = {}
+			for b in r.bids.all():
+				bids_data[b.player.name] = {
+					'bid': b.amount,
+					'actual': b.actual_tricks if b.actual_tricks is not None else 0
+				}
+			phase = '3' if r.status == Round.Status.COMPLETE else ('2' if r.status == Round.Status.PLAYING else '1')
+			saved_rounds_data.append({
+				'number': r.number,
+				'cards_per_player': r.cards_per_player,
+				'trump_suit': r.trump_suit,
+				'status': r.status,
+				'phase': phase,
+				'bids': bids_data,
+			})
+
 	return render(request, 'game/scoreboard.html', {
 		'game': game,
 		'player_names': player_names,
@@ -38,53 +58,81 @@ def scoreboard(request, game_id=None):
 		'max_cards': max_cards,
 		'is_finished': is_finished,
 		'registered_users': registered_users,
+		'saved_rounds_data': saved_rounds_data,
 	})
+
+
+def save_rounds(request, game_id=None):
+	if request.method != 'POST':
+		return JsonResponse({'detail': 'POST required.'}, status=405)
+	try:
+		data = json.loads(request.body)
+		player_list = data.get('players', [])
+		rounds_list = data.get('rounds', [])
+		deck_count = data.get('deck_count', 1)
+	except Exception as e:
+		return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+	if not game_id:
+		game = Game.objects.create(name=f"Kachhu Ful Game #{Game.objects.count() + 1}", deck_count=deck_count)
+	else:
+		game = get_object_or_404(Game, id=game_id)
+
+	save_game_rounds_and_scores(game, player_list, rounds_list, deck_count)
+	return JsonResponse({'status': 'success', 'game_id': game.id, 'game_name': game.name})
 
 
 def finish_game(request, game_id=None):
 	if request.method != 'POST':
 		return JsonResponse({'detail': 'POST required.'}, status=405)
-	game = get_object_or_404(Game, id=game_id) if game_id else None
-	game_name = game.name if game else 'Kachhu Ful Game'
-	if game:
-		game.status = Game.Status.FINISHED
-		game.save(update_fields=['status'])
 
 	player_list = []
+	rounds_list = []
+	deck_count = 1
 	if request.content_type == 'application/json':
 		try:
 			data = json.loads(request.body)
 			player_list = data.get('players', [])
+			rounds_list = data.get('rounds', [])
+			deck_count = data.get('deck_count', 1)
 		except Exception:
-			player_list = []
+			pass
+
+	if not game_id:
+		game = Game.objects.create(
+			name=f"Kachhu Ful Game #{Game.objects.count() + 1}",
+			status=Game.Status.WAITING,
+			deck_count=deck_count
+		)
+	else:
+		game = get_object_or_404(Game, id=game_id)
+
+	game_name = game.name
+	already_finished = (game.status == Game.Status.FINISHED)
+
+	if not already_finished:
+		game.status = Game.Status.FINISHED
+		game.save(update_fields=['status'])
 
 	if not player_list and game:
 		player_list = [{'name': p.name, 'email': p.email, 'score': p.score} for p in game.players.all()]
 
-	if game and player_list:
-		for pdata in player_list:
-			p_name = pdata.get('name')
-			p_score = pdata.get('score', 0)
-			if p_name:
-				p_obj = game.players.filter(name__iexact=p_name).first()
-				if p_obj:
-					p_obj.score = int(p_score)
-					if pdata.get('email'):
-						p_obj.email = pdata.get('email')
-					p_obj.save()
+	if game and (player_list or rounds_list):
+		save_game_rounds_and_scores(game, player_list, rounds_list, deck_count)
 
-	email_results = send_game_finished_emails(game_name, player_list)
+	email_results = send_game_finished_emails(game_name, player_list, award_points=not already_finished)
 
 	if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
 		return JsonResponse({
 			'status': 'success',
+			'game_id': game.id,
 			'game_name': game_name,
 			'email_results': email_results,
-			'message': f"Game finished! Emails dispatched ({email_results.get('winners_sent', 0)} winners, {email_results.get('losers_sent', 0)} losers)."
+			'message': f"Game finished & scorecard saved! Emails dispatched ({email_results.get('winners_sent', 0)} winners, {email_results.get('losers_sent', 0)} losers)."
 		})
 
-	messages.success(request, f'Game "{game_name}" is now finished! Revealing final scorecard & emails sent.')
-	return redirect(f'/scoreboard/{game.id}/?finished=1' if game else '/scoreboard/?finished=1')
+	messages.success(request, f'Game "{game_name}" is now finished! Final scorecard saved.')
+	return redirect(f'/scoreboard/{game.id}/?finished=1')
 
 
 def game_room(request, game_id):
@@ -264,7 +312,7 @@ def analytics(request, username=None):
 		game_exact_hits = 0
 		game_total_bids = p_bids.count()
 		for b in p_bids:
-			tricks_won = Trick.objects.filter(round=b.round, winner=p).count()
+			tricks_won = b.actual_tricks if b.actual_tricks is not None else Trick.objects.filter(round=b.round, winner=p).count()
 			if b.amount == tricks_won:
 				game_exact_hits += 1
 
@@ -314,13 +362,12 @@ def analytics(request, username=None):
 import random
 import string
 from django.contrib.auth.decorators import login_required
-from .models import UserReward
-
-
 def rewards_page(request):
 	reward = None
+	redemptions = []
 	if request.user.is_authenticated:
 		reward, _ = UserReward.objects.get_or_create(user=request.user)
+		redemptions = list(RewardRedemption.objects.filter(user=request.user).order_by('-created_at'))
 	
 	streak_days_list = [
 		{'day': 1, 'pts': 1},
@@ -333,6 +380,7 @@ def rewards_page(request):
 	]
 	return render(request, 'game/rewards.html', {
 		'reward': reward,
+		'redemptions': redemptions,
 		'streak_days_list': streak_days_list,
 	})
 
@@ -355,6 +403,12 @@ def redeem_points(request):
 
 	code_digits = ''.join(random.choices(string.digits, k=6))
 	voucher_code = f"KF-REDEEM-{code_digits}"
+
+	RewardRedemption.objects.create(
+		user=request.user,
+		voucher_code=voucher_code,
+		points_spent=100
+	)
 
 	return JsonResponse({
 		'status': 'success',

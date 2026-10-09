@@ -5,7 +5,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path
 
-from .models import Bid, Card, Game, PlayedCard, Player, Round, Trick, UserReward
+from .models import Bid, Card, Game, PlayedCard, Player, RewardRedemption, Round, Trick, UserReward
 
 
 def bulk_add_users_view(request):
@@ -91,6 +91,13 @@ class UserRewardAdmin(admin.ModelAdmin):
 	@admin.display(description='Kachhuful Points')
 	def points_badge(self, obj):
 		return f"🪙 {obj.points} Points"
+
+
+@admin.register(RewardRedemption)
+class RewardRedemptionAdmin(admin.ModelAdmin):
+	list_display = ('user', 'voucher_code', 'points_spent', 'created_at')
+	search_fields = ('user__username', 'user__first_name', 'user__email', 'voucher_code')
+	list_filter = ('created_at',)
 
 
 class PlayerInline(admin.TabularInline):

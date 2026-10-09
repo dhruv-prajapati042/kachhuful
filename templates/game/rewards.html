@@ -78,6 +78,66 @@
     <div class="alert d-none mt-3 mb-0 text-center fw-bold" id="redemption-alert"></div>
   </section>
 
+  <!-- Redeemed Vouchers & Reward History Section -->
+  <section class="surface p-4 border-0 shadow-sm bg-white mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h4 fw-bold mb-0">📜 Redeemed Vouchers & Reward History</h2>
+        <p class="text-secondary small mb-0">View all your claimed voucher codes and point redemptions.</p>
+      </div>
+      {% if redemptions %}
+        <span class="badge bg-success fs-6 px-3 py-2">Total Redeemed: {{ redemptions|length }} Voucher{% if redemptions|length > 1 %}s{% endif %}</span>
+      {% endif %}
+    </div>
+
+    {% if user.is_authenticated %}
+      {% if redemptions %}
+        <div class="table-responsive mt-3">
+          <table class="table align-middle table-hover border rounded">
+            <thead class="table-dark">
+              <tr>
+                <th>#</th>
+                <th>Date & Time</th>
+                <th>Points Spent</th>
+                <th>Redeem Voucher Code</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in redemptions %}
+                <tr>
+                  <td><strong>#{{ forloop.counter }}</strong></td>
+                  <td>{{ item.created_at|date:"M d, Y · h:i A" }}</td>
+                  <td><span class="badge bg-danger-subtle text-danger border fw-bold">-{{ item.points_spent }} Points</span></td>
+                  <td>
+                    <code class="fs-6 fw-bold text-success bg-light px-3 py-1 rounded border border-success d-inline-block">{{ item.voucher_code }}</code>
+                  </td>
+                  <td><span class="badge bg-success">Active / Claimed</span></td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-success copy-code-btn" type="button" data-code="{{ item.voucher_code }}">
+                      📋 Copy Code
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-4 bg-light rounded text-center border mt-2">
+          <div class="fs-1 mb-2">🎟️</div>
+          <h3 class="h5 fw-bold text-dark mb-1">No Redeemed Vouchers Yet</h3>
+          <p class="text-secondary small mb-0">Once you reach 100 points and redeem, your generated voucher codes will be listed here.</p>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="p-4 bg-light rounded text-center border mt-2">
+        <p class="text-secondary mb-0">Please <a href="{% url 'login' %}" class="fw-bold text-success">login</a> to view your redemption history and reward vouchers.</p>
+      </div>
+    {% endif %}
+  </section>
+
   <!-- 7-Day Daily Login Streak Section -->
   <section class="surface p-4 border-0 shadow-sm bg-white mb-4">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -206,5 +266,22 @@ if (redeemBtn) {
     });
   });
 }
+
+document.querySelectorAll('.copy-code-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const code = btn.dataset.code;
+    if (code) {
+      navigator.clipboard.writeText(code).then(() => {
+        const origText = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        btn.classList.replace('btn-outline-success', 'btn-success');
+        setTimeout(() => {
+          btn.innerHTML = origText;
+          btn.classList.replace('btn-success', 'btn-outline-success');
+        }, 2000);
+      });
+    }
+  });
+});
 </script>
 {% endblock %}

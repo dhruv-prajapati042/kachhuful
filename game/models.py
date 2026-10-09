@@ -85,6 +85,7 @@ class Bid(models.Model):
 	round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name='bids')
 	player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='bids')
 	amount = models.PositiveSmallIntegerField()
+	actual_tricks = models.PositiveSmallIntegerField(null=True, blank=True, default=0)
 	submitted_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
@@ -143,3 +144,16 @@ class UserReward(models.Model):
 
 	def __str__(self):
 		return f'{self.user.username} - {self.points} Points (Day {self.streak_days} Streak)'
+
+
+class RewardRedemption(models.Model):
+	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='redemptions')
+	voucher_code = models.CharField(max_length=60, unique=True)
+	points_spent = models.PositiveIntegerField(default=100)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['-created_at']
+
+	def __str__(self):
+		return f'{self.user.username} - {self.voucher_code} ({self.points_spent} pts)'

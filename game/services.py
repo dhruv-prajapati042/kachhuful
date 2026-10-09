@@ -6,7 +6,7 @@ from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
-from .models import Bid, Card, PlayedCard, Round, SUITS, TRUMP_SEQUENCE, RANK_VALUES, Trick
+from .models import Bid, Card, PlayedCard, Player, Round, SUITS, TRUMP_SEQUENCE, RANK_VALUES, Trick
 
 
 def score_for_bid(bid, actual):
@@ -219,14 +219,103 @@ def award_game_finish_points(player_list):
                 reward.save()
 
 
-def send_game_finished_emails(game_name, player_list):
+def save_game_rounds_and_scores(game, player_list, rounds_list, deck_count=None):
+    """
+    Saves players, round-by-round bids, actual tricks, and scores to the database for a Game.
+    """
+    if deck_count:
+        game.deck_count = int(deck_count)
+        game.save(update_fields=['deck_count'])
+
+    player_map = {}
+    for idx, pdata in enumerate(player_list):
+        p_name = pdata.get('name', '').strip()
+        if not p_name:
+            continue
+        p_score = int(pdata.get('score', 0))
+        p_email = pdata.get('email', '').strip()
+
+        p_obj = game.players.filter(name__iexact=p_name).first()
+        if not p_obj:
+            p_obj = Player.objects.create(game=game, name=p_name, email=p_email, seat=idx + 1, score=p_score)
+        else:
+            p_obj.score = p_score
+            if p_email:
+                p_obj.email = p_email
+            p_obj.save()
+        player_map[p_name.lower()] = p_obj
+
+    max_round_num = 0
+    for rdata in rounds_list:
+        r_num = int(rdata.get('number', 1))
+        if r_num > max_round_num:
+            max_round_num = r_num
+        cards_per_player = int(rdata.get('cards_per_player', 1))
+        trump_suit = str(rdata.get('trump_suit', 'SPADES')).upper()
+        phase = str(rdata.get('phase', '3'))
+
+        r_status = Round.Status.COMPLETE if phase == '3' else (Round.Status.PLAYING if phase == '2' else Round.Status.BIDDING)
+
+        r_obj = game.rounds.filter(number=r_num).first()
+        if not r_obj:
+            r_obj = Round.objects.create(
+                game=game,
+                number=r_num,
+                cards_per_player=cards_per_player,
+                trump_suit=trump_suit,
+                status=r_status
+            )
+        else:
+            r_obj.cards_per_player = cards_per_player
+            r_obj.trump_suit = trump_suit
+            r_obj.status = r_status
+            r_obj.save()
+
+        bids_list = rdata.get('bids', [])
+        Trick.objects.filter(round=r_obj).delete()
+        trick_counter = 1
+        for bdata in bids_list:
+            p_name = bdata.get('player_name', '').strip()
+            p_obj = player_map.get(p_name.lower())
+            if not p_obj:
+                p_obj = game.players.filter(name__iexact=p_name).first()
+            if not p_obj:
+                continue
+
+            bid_amt = int(bdata.get('bid', 0))
+            actual_tricks = int(bdata.get('actual', 0))
+
+            b_obj = Bid.objects.filter(round=r_obj, player=p_obj).first()
+            if not b_obj:
+                b_obj = Bid.objects.create(round=r_obj, player=p_obj, amount=bid_amt, actual_tricks=actual_tricks)
+            else:
+                b_obj.amount = bid_amt
+                b_obj.actual_tricks = actual_tricks
+                b_obj.save()
+
+            for _ in range(actual_tricks):
+                Trick.objects.create(
+                    round=r_obj,
+                    number=trick_counter,
+                    leader=p_obj,
+                    winner=p_obj
+                )
+                trick_counter += 1
+
+    if max_round_num > 0:
+        game.current_round = max_round_num
+        game.save(update_fields=['current_round'])
+
+
+def send_game_finished_emails(game_name, player_list, award_points=True):
     """
     player_list: list of dicts: [{'name': '...', 'email': '...', 'score': 100}, ...]
     Identifies ALL winners (highest score, handles ties) and ALL losers (lowest score, handles ties).
     Sends Champion Victory email to Winners, and Better Luck Next Time email to Losers.
     Also awards Kachhuful Reward Points (+10 for 1st, +5 for 2nd, +3 for 3rd if >5 players).
     """
-    award_game_finish_points(player_list)
+    if award_points:
+        award_game_finish_points(player_list)
     valid_players = [p for p in player_list if p.get('name')]
     if not valid_players:
         return {'winners_sent': 0, 'losers_sent': 0}
@@ -263,10 +352,11 @@ def send_game_finished_emails(game_name, player_list):
             })
             text_content = f"CONGRATULATIONS {name}! You WON 1st Place at {game_name} with {winner.get('score', max_score)} points! You are the Kachhu Ful Champion!"
 
+            from_addr = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'dhruvtt042@tesseracttechnolabs.com'
             msg = EmailMultiAlternatives(
                 subject=f"🏆 YOU WON! 🥇 Champion Victory at {game_name}",
                 body=text_content,
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'dhruvtt042@tesseracttechnolabs.com'),
+                from_email=from_addr,
                 to=[email]
             )
             msg.attach_alternative(html_content, "text/html")
@@ -295,10 +385,11 @@ def send_game_finished_emails(game_name, player_list):
             })
             text_content = f"Hi {name}, better luck next time! You played hard at {game_name} with {loser.get('score', min_score)} pts. Keep practicing your bids!"
 
+            from_addr = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'dhruvtt042@tesseracttechnolabs.com'
             msg = EmailMultiAlternatives(
                 subject=f"👎 Better Luck Next Time, {name}! - Kachhu Ful",
                 body=text_content,
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'dhruvtt042@tesseracttechnolabs.com'),
+                from_email=from_addr,
                 to=[email]
             )
             msg.attach_alternative(html_content, "text/html")

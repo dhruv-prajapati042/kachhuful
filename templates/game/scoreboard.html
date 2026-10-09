@@ -169,9 +169,11 @@
 
 {{ player_names|json_script:"stored-player-names" }}
 {{ registered_users|json_script:"registered-users-data" }}
+{{ saved_rounds_data|json_script:"saved-rounds-data" }}
 <script>
 const storedPlayerNames = JSON.parse(document.getElementById('stored-player-names').textContent);
 const registeredUsersList = JSON.parse(document.getElementById('registered-users-data').textContent || '[]');
+const savedRoundsData = JSON.parse(document.getElementById('saved-rounds-data').textContent || '[]');
 let playerNames = storedPlayerNames.length ? storedPlayerNames : Array.from({length: 5}, (_, index) => `Player ${index + 1}`);
 let playerCount = playerNames.length;
 let deckCount = {{ deck_count|default:1 }};
@@ -201,7 +203,8 @@ function getCardsForRound(rNum, pCount, dCount) {
   return cycle[(rNum - 1) % cycle.length];
 }
 
-function scoreFor(bid, actual) {
+function scoreFor(bid, actual, phase) {
+  if (phase === '1') return 0;
   const bidVal = (bid === '' || bid === null || bid === undefined) ? 0 : Number(bid);
   const actualVal = (actual === '' || actual === null || actual === undefined) ? 0 : Number(actual);
   return bidVal === actualVal ? ((bidVal + 1) * 10) + bidVal : 0;
@@ -285,6 +288,7 @@ function removePlayer() {
 function renderTotals() {
   const totals = Array.from({length: playerCount}, () => ({ bids: 0, actual: 0, points: 0 }));
   document.querySelectorAll('.round-card').forEach((round) => {
+    const rPhase = round.dataset.phase || '1';
     for (let player = 0; player < playerCount; player++) {
       const bidEl = round.querySelector(`[data-field="bid-${player}"]`);
       const actualEl = round.querySelector(`[data-field="actual-${player}"]`);
@@ -293,9 +297,9 @@ function renderTotals() {
       const actual = actualEl.value;
       const bidVal = bid === '' ? 0 : Number(bid);
       const actualVal = actual === '' ? 0 : Number(actual);
-      totals[player].bids += bidVal;
-      totals[player].actual += actualVal;
-      totals[player].points += scoreFor(bid, actual);
+      if (rPhase !== '1') totals[player].bids += bidVal;
+      if (rPhase === '3') totals[player].actual += actualVal;
+      totals[player].points += scoreFor(bid, actual, rPhase);
     }
   });
   document.getElementById('totals').innerHTML = totals.map((total, index) => `<div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-2"><div class="score-tile"><span>${playerNames[index]}</span><strong>${total.points}</strong><small>Bid ${total.bids} · Actual ${total.actual}</small></div></div>`).join('');
@@ -303,6 +307,7 @@ function renderTotals() {
 
 function updateRound(round) {
   const roundCards = Number(round.dataset.cards || 1);
+  const rPhase = round.dataset.phase || '1';
   let bidTotal = 0;
   let actualTotal = 0;
   let pointsTotal = 0;
@@ -311,14 +316,15 @@ function updateRound(round) {
     const actual = round.querySelector(`[data-field="actual-${player}"]`);
     const result = round.querySelector(`[data-field="score-${player}"]`);
     if (!bid || !actual || !result) continue;
-    const score = scoreFor(bid.value, actual.value);
+    const score = scoreFor(bid.value, actual.value, rPhase);
     const bidVal = bid.value === '' ? 0 : Number(bid.value);
     const actualVal = actual.value === '' ? 0 : Number(actual.value);
-    bidTotal += bidVal;
-    actualTotal += actualVal;
+    if (rPhase !== '1' || bid.value !== '') bidTotal += bidVal;
+    if (rPhase === '3') actualTotal += actualVal;
     pointsTotal += score;
     result.textContent = score;
-    result.className = `round-result ${bidVal === actualVal ? 'matched' : 'missed'}`;
+    const isMatch = (bidVal === actualVal);
+    result.className = `round-result ${isMatch && rPhase !== '1' ? 'matched' : 'missed'}`;
   }
   const bidTotalEl = round.querySelector('[data-field="bid-total"]');
   const actualTotalEl = round.querySelector('[data-field="actual-total"]');
@@ -391,7 +397,7 @@ function rebuildAllRounds() {
         <th data-name-player="${player}">${name}</th>
         <td><input class="form-control bid-input text-center" type="number" min="0" max="${roundCards}" data-field="bid-${player}" value="${existingBids[player] !== undefined ? existingBids[player] : 0}" placeholder="0" ${isPhase2or3 ? 'disabled' : ''}></td>
         <td><input class="form-control actual-input text-center" type="number" min="0" max="${roundCards}" data-field="actual-${player}" value="${existingActuals[player] !== undefined ? existingActuals[player] : 0}" placeholder="0" ${isPhase2or3 ? '' : 'disabled'}></td>
-        <td><span class="round-result matched" data-field="score-${player}">0</span></td>
+        <td><span class="round-result missed" data-field="score-${player}">0</span></td>
       </tr>`).join('') + `
       <tr class="summary-row"><th>Round totals</th><th data-field="bid-total">0</th><th><span data-field="actual-total">0</span><span data-field="trick-validation" class="badge bg-secondary ms-1"></span></th><th data-field="points-total">0</th></tr>`;
     }
@@ -452,7 +458,7 @@ function addRound() {
           <th data-name-player="${player}">${name}</th>
           <td><input class="form-control bid-input text-center" type="number" min="0" max="${roundCards}" data-field="bid-${player}" value="0" placeholder="0"></td>
           <td><input class="form-control actual-input text-center" type="number" min="0" max="${roundCards}" data-field="actual-${player}" value="0" placeholder="0" disabled></td>
-          <td><span class="round-result matched" data-field="score-${player}">10</span></td>
+          <td><span class="round-result missed" data-field="score-${player}">0</span></td>
         </tr>`).join('')}
         <tr class="summary-row"><th>Round totals</th><th data-field="bid-total">0</th><th><span data-field="actual-total">0</span><span data-field="trick-validation" class="badge bg-secondary ms-1"></span></th><th data-field="points-total">0</th></tr></tbody>
       </table>
@@ -525,6 +531,7 @@ function addRound() {
     phaseBadge.textContent = 'Phase 2: Enter Actual Tricks';
     round.dataset.phase = '2';
     updateRound(round);
+    saveScoreboardProgress();
   });
 
   editBidsBtn.addEventListener('click', () => {
@@ -534,6 +541,7 @@ function addRound() {
     phaseBadge.className = 'badge bg-primary fs-6 px-3 py-1 phase-badge';
     phaseBadge.textContent = 'Phase 1: Enter Bids';
     round.dataset.phase = '1';
+    saveScoreboardProgress();
   });
 
   finishRoundBtn.addEventListener('click', () => {
@@ -552,6 +560,7 @@ function addRound() {
 
     updateTillNowStrip();
     tillNowStrip.classList.remove('d-none');
+    saveScoreboardProgress();
 
     if (currentRoundNum === roundNumber) {
       addRound();
@@ -687,6 +696,59 @@ function getCookie(name) {
   return cookieValue;
 }
 
+function saveScoreboardProgress() {
+  const playerTotals = Array.from({length: playerCount}, (_, idx) => ({ name: playerNames[idx], score: 0 }));
+  const roundsPayload = [];
+  document.querySelectorAll('.round-card').forEach((round) => {
+    const rNum = Number(round.dataset.round || 1);
+    const trump = getTrumpForRound(rNum);
+    const rCards = Number(round.dataset.cards || 1);
+    const phase = round.dataset.phase || '1';
+
+    const bidsList = [];
+    for (let p = 0; p < playerCount; p++) {
+      const bEl = round.querySelector(`[data-field="bid-${p}"]`);
+      const aEl = round.querySelector(`[data-field="actual-${p}"]`);
+      const bVal = bEl ? (bEl.value === '' ? 0 : Number(bEl.value)) : 0;
+      const aVal = aEl ? (aEl.value === '' ? 0 : Number(aEl.value)) : 0;
+      const sc = scoreFor(bVal, aVal);
+      playerTotals[p].score += sc;
+      bidsList.push({
+        player_name: playerNames[p],
+        bid: bVal,
+        actual: aVal,
+        score: sc
+      });
+    }
+    roundsPayload.push({
+      number: rNum,
+      cards_per_player: rCards,
+      trump_suit: trump.suit ? trump.suit.toUpperCase() : 'SPADES',
+      phase: phase,
+      bids: bidsList
+    });
+  });
+
+  const saveUrl = {% if game %}'/game/{{ game.id }}/save-rounds/'{% else %}'/save-rounds/'{% endif %};
+  fetch(saveUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken') || '',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({
+      deck_count: deckCount,
+      players: playerTotals,
+      rounds: roundsPayload
+    })
+  }).then(res => res.json()).then(data => {
+    if (data.game_id && !window.location.pathname.includes('/scoreboard/' + data.game_id)) {
+      window.history.replaceState(null, '', '/scoreboard/' + data.game_id + '/');
+    }
+  }).catch(() => {});
+}
+
 function showFinalScorecard() {
   const playerStats = playerNames.map((name, player) => ({
     playerIndex: player,
@@ -699,32 +761,65 @@ function showFinalScorecard() {
   }));
 
   const roundCardsList = document.querySelectorAll('.round-card');
-  const roundsCount = roundCardsList.length;
+  let completedRoundsCount = 0;
+  const roundsPayload = [];
 
   roundCardsList.forEach((round) => {
+    const phase = round.dataset.phase || '1';
+    let hasAnyBid = false;
+    for (let player = 0; player < playerCount; player++) {
+      const bEl = round.querySelector(`[data-field="bid-${player}"]`);
+      if (bEl && bEl.value !== '') hasAnyBid = true;
+    }
+
+    if (phase === '1' && !hasAnyBid) {
+      return; // Skip trailing unplayed round!
+    }
+
+    completedRoundsCount += 1;
+    const rNum = Number(round.dataset.round || 1);
+    const trump = getTrumpForRound(rNum);
+    const rCards = Number(round.dataset.cards || 1);
+    const bidsList = [];
+
     for (let player = 0; player < playerCount; player++) {
       const bEl = round.querySelector(`[data-field="bid-${player}"]`);
       const aEl = round.querySelector(`[data-field="actual-${player}"]`);
-      if (bEl && aEl && bEl.value !== '' && aEl.value !== '') {
-        const bidNum = Number(bEl.value);
-        const actualNum = Number(aEl.value);
-        const score = scoreFor(bEl.value, aEl.value);
-        playerStats[player].totalBids += bidNum;
-        playerStats[player].totalActual += actualNum;
-        playerStats[player].points += score;
-        playerStats[player].totalRounds += 1;
-        if (bidNum === actualNum) {
-          playerStats[player].exactHits += 1;
-        }
+      const bVal = bEl ? bEl.value : '';
+      const aVal = aEl ? aEl.value : '';
+      const score = scoreFor(bVal, aVal, phase);
+      const bidNum = bVal === '' ? 0 : Number(bVal);
+      const actualNum = aVal === '' ? 0 : Number(aVal);
+
+      if (phase !== '1' || bVal !== '') playerStats[player].totalBids += bidNum;
+      if (phase === '3') playerStats[player].totalActual += actualNum;
+      playerStats[player].points += score;
+      if (phase === '3') playerStats[player].totalRounds += 1;
+      if (bVal !== '' && aVal !== '' && bidNum === actualNum && phase !== '1') {
+        playerStats[player].exactHits += 1;
       }
+      bidsList.push({
+        player_name: playerNames[player],
+        bid: bidNum,
+        actual: actualNum,
+        score: score
+      });
     }
+
+    roundsPayload.push({
+      number: rNum,
+      cards_per_player: rCards,
+      trump_suit: trump.suit ? trump.suit.toUpperCase() : 'SPADES',
+      phase: phase,
+      bids: bidsList
+    });
   });
 
   playerStats.sort((a, b) => b.points - a.points);
   const winner = playerStats[0];
 
   document.getElementById('winner-announcement').textContent = winner && winner.points > 0 ? `🏆 Champion: ${winner.name}` : '🏆 Game Finished!';
-  document.getElementById('rounds-played-count').textContent = roundsCount;
+  document.getElementById('rounds-played-count').textContent = completedRoundsCount;
 
   const podiumContainer = document.getElementById('podium-cards');
   const podiumStyles = [
@@ -778,7 +873,9 @@ function showFinalScorecard() {
       'X-Requested-With': 'XMLHttpRequest'
     },
     body: JSON.stringify({
-      players: playerStats.map(s => ({ name: s.name, score: s.points }))
+      deck_count: deckCount,
+      players: playerStats.map(s => ({ name: s.name, score: s.points })),
+      rounds: roundsPayload
     })
   }).then(res => res.json()).then(data => {
     if (emailBanner) {
@@ -839,8 +936,38 @@ if (quickSwitchBtn) {
 
 renderPlayers();
 renderCalculatorBanner();
-renderTotals();
-addRound();
+
+if (savedRoundsData && savedRoundsData.length > 0) {
+  rounds.innerHTML = '';
+  roundNumber = 0;
+  emptyState.classList.add('d-none');
+
+  savedRoundsData.forEach(rData => {
+    const roundEl = addRound();
+    for (let player = 0; player < playerCount; player++) {
+      const pName = playerNames[player];
+      const pBidData = (rData.bids && rData.bids[pName]) ? rData.bids[pName] : { bid: 0, actual: 0 };
+      const bidInput = roundEl.querySelector(`[data-field="bid-${player}"]`);
+      const actualInput = roundEl.querySelector(`[data-field="actual-${player}"]`);
+      if (bidInput) bidInput.value = pBidData.bid;
+      if (actualInput) actualInput.value = pBidData.actual;
+    }
+
+    if (rData.phase === '3') {
+      const saveBidsBtn = roundEl.querySelector('.save-bids-btn');
+      const finishBtn = roundEl.querySelector('.finish-round-btn');
+      if (saveBidsBtn) saveBidsBtn.click();
+      if (finishBtn) finishBtn.click();
+    } else if (rData.phase === '2') {
+      const saveBidsBtn = roundEl.querySelector('.save-bids-btn');
+      if (saveBidsBtn) saveBidsBtn.click();
+    }
+  });
+  renderTotals();
+} else {
+  renderTotals();
+  addRound();
+}
 
 if ({% if is_finished %}true{% else %}false{% endif %} || new URLSearchParams(window.location.search).get('finished') === '1') {
   setTimeout(() => showFinalScorecard(), 300);
